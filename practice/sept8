@@ -1,0 +1,54 @@
+#lang racket
+
+"Hello World!"
+
+(substring "the boy out of the country" 4 7)
+
+(define (extract str)
+  (substring str 4 7))
+
+(extract "the boy")
+
+(define pie 3)
+
+(define (piece str)
+  (substring str 0 pie))
+
+(piece "the boy")
+
+(define (bake flavor)
+  (printf "preheaving oven ... \n")
+  (string-append flavor " pie"))
+
+(bake "apple")
+
+(define (greet name)
+  (printf "Hello there"))
+
+(greet "joe")
+
+(string-append "joe" "eats" "ass")
+
+(substring "cordsssss" 0 4)
+
+(string-prefix? "shoelace" "shoe")
+
+(string? "Hello there")
+
+(sqrt 16)
+
+(sqrt -16)
+
+(+ 1 2)
+
+(- 1 2)
+
+(>= 1 2)
+
+(<= 1 2)
+
+(number? "i am not a number this should return false")
+
+(equal? "half" "half")
+
+ 
