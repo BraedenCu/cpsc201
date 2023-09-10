@@ -73,12 +73,11 @@
       (error "please enter a number")
       )
     )
-  (define pounds (floor rawpounds))
-  (define ounces (floor (* (- rawpounds (floor rawpounds)) 16)))
-  (string-append (~r pounds) " pounds " (~r ounces) " ounces ")
+  (define pounds (exact-floor rawpounds))
+  (define ounces (exact-floor (* (- rawpounds (floor rawpounds)) 16)))
   (if (or (> ounces 1) (< ounces 1) )
-      (list pounds "pounds" ounces "ounces")
-      (list pounds "pounds" ounces "ounce")
+      (list pounds 'pounds ounces 'ounces)
+      (list pounds 'pound ounces 'ounce)
   )
  )
 
@@ -103,8 +102,7 @@
 ; tested automatically, and will be called only with no arguments.
 
 (define (timezone)
-  (define time "EST")
-  time
+  "EST"
 )
 
 ; ********************************************************
