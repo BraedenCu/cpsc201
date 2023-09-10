@@ -75,7 +75,11 @@
     )
   (define pounds (floor rawpounds))
   (define ounces (floor (* (- rawpounds (floor rawpounds)) 16)))
-  (string-append (~r pounds) " pounds " (~r ounces) " ounces ") 
+  (string-append (~r pounds) " pounds " (~r ounces) " ounces ")
+  (if (or (> ounces 1) (< ounces 1) )
+      (list pounds "pounds" ounces "ounces")
+      (list pounds "pounds" ounces "ounce")
+  )
  )
 
     
@@ -99,7 +103,9 @@
 ; tested automatically, and will be called only with no arguments.
 
 (define (timezone)
-  empty)
+  (define time "EST")
+  time
+)
 
 ; ********************************************************
 ; ** problem 3 ** (10 points)
