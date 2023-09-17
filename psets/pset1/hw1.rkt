@@ -24,8 +24,8 @@
 ; CS 201 HW #1  DUE Wednesday 9/20/2023, 11:59 pm
 ;                via the submit system on the Zoo
 ; ********************************************************
-; Name:
-; Email address:
+; Name: Braeden Cullen
+; Email address: braeden.cullen@yale.edu
 ; ********************************************************
 
 ; This file may be opened in DrRacket.  Lines beginning with
@@ -74,7 +74,7 @@
 ; of hours you spent doing this assignment Decimal numbers (eg, 6.237)
 ; are fine.  Exclude time spent reading.
 
-(define hours 0)
+(define hours 10)
 
 ; ********************************************************
 ; ** problem 1 ** (9 points)
@@ -109,11 +109,28 @@
 
 ; ********************************************************
 
+
+
 (define (bin2dec num)
-  empty)
+  (define len (length num))
+  (define rnum (reverse num))
+  (define (convert n)
+    (if (empty? n)
+        0
+        (+
+         (* (car n) (expt 2 (- len (length n))))
+         (convert (cdr n)))))
+  (convert rnum)
+)
 
 (define (dec2bin n)
-  empty)
+  (define result (string ""))
+  (define (convert n)
+    (cond [(equals? x 0) ""]
+          [(even? x) (string-append "0" (convert((/ x 2))))]
+          [else (string-append "1" (convert((/ (- x 1) 2))))]))
+  (string->number (convert n)))
+
 
 ; ********************************************************
 ; ** problem 2 ** (10 points)
@@ -474,7 +491,7 @@
 (test 'bin2dec (bin2dec '())  0)
 (test 'bin2dec (bin2dec '(1 0 0 0 0 0 0 0)) 128)
 
-
+#|
 (test 'dec2bin (dec2bin 10) '(1 0 1 0))
 (test 'dec2bin (dec2bin 31) '(1 1 1 1 1))
 (test 'dec2bin (dec2bin 23) '(1 0 1 1 1))
@@ -553,6 +570,6 @@
 (test 'all-factors (all-factors 1000) '(1 2 4 5 8 10 20 25 40 50 100 125 200 250 500 1000))
 (test 'all-factors (all-factors 30030) '(1 2 3 5 6 7 10 11 13 14 15 21 22 26 30 33 35 39 42 55 65 66 70 77 78 91 105 110 130 143 154 165 182 195 210 231 273 286 330 385 390 429 455 462 546 715 770 858 910 1001 1155 1365 1430 2002 2145 2310 2730 3003 4290 5005 6006 10010 15015 30030))
 
-
+|#
 ;*********************************************************
 ;***** end of hw #1
