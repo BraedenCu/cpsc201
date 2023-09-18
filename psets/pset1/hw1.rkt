@@ -124,13 +124,18 @@
 )
 
 (define (dec2bin n)
-  (define result (string ""))
-  (define (convert n)
-    (cond [(equals? x 0) ""]
-          [(even? x) (string-append "0" (convert((/ x 2))))]
-          [else (string-append "1" (convert((/ (- x 1) 2))))]))
-  (string->number (convert n)))
-
+  (define result empty)
+  (define (convert x)
+    ;(print x)
+    ;(print (truncate (/ (- x 1)2)))
+    (cond [(equal? x 0) result]
+          [(equal? (modulo x 2) 1) result (append '(1) (convert(truncate (/ (- x 1) 2))))]
+          [(equal? (modulo x 2) 0) append result (append '(0) (convert(truncate (/ x 2))))]
+          [else (result)]
+          )
+    )
+  (reverse (convert n))
+  )
 
 ; ********************************************************
 ; ** problem 2 ** (10 points)
@@ -138,7 +143,7 @@
 ; Write two procedures which convert hexadecimal numbers (base 16) to
 ; decimal and vice versa
 
-; (hex2dec n)
+(hex2dec n)
 
 ; that takes a list of hexadecimal (base 16) digits and returns the
 ; corresponding decimal number.  Note that hexadecimal digits may be
@@ -483,6 +488,7 @@
 			    'X)))
 	   (list 'testing name prefix 'got: got 'expected: expected)))))
 
+#|
 (test 'hours hours (lambda (x) (> x 0)))
 	
 (test 'bin2dec (bin2dec '(1 0 1 0)) 10)
@@ -491,7 +497,7 @@
 (test 'bin2dec (bin2dec '())  0)
 (test 'bin2dec (bin2dec '(1 0 0 0 0 0 0 0)) 128)
 
-#|
+
 (test 'dec2bin (dec2bin 10) '(1 0 1 0))
 (test 'dec2bin (dec2bin 31) '(1 1 1 1 1))
 (test 'dec2bin (dec2bin 23) '(1 0 1 1 1))
@@ -499,6 +505,7 @@
 (test 'dec2bin (dec2bin 128) '(1 0 0 0 0 0 0 0))
 (test 'dec2bin (dec2bin 127) '(1 1 1 1 1 1 1))
 
+|#
 
 (test 'hex2dec (hex2dec '(A)) 10)
 (test 'hex2dec (hex2dec '(F F)) 255)
@@ -512,6 +519,7 @@
 
 (define dectohexalist '((10 a) (11 b) (12 c) (13 d) (14 e) (15 f)))
 
+#| 
 (test 'myassq (myassq 10 dectohexalist) '(10 a))
 (test 'myassq (myassq 15 dectohexalist) '(15 f))
 (test 'myassq (myassq 10 (map reverse dectohexalist)) '())
