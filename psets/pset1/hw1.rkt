@@ -307,26 +307,40 @@
 ;;  (sorted? '(1 2 3 4 3 2 1)) => #f
 ;;  
 
-#|
+
+;(define (sorted? lst . compare?)
+;  (define (compareElements lst . compare?)
+;    (cond
+;      [(empty? lst) #t]
+;      [(empty? (cdr lst)) #t]
+;      [(compare? (car lst) (cadr lst)) compareElements((cdr lst) compare?)]
+;      [else #f]
+;      )
+;    )
+;  (compareElements lst compare?)
+;  
+;  )
+
+;(sorted? '(1 2 3 4) <)
 (define (sorted? lst . compare?)
-
-  
-  (define (compareElements lst . compare?)
-    (cond
-      [(null? lst) #t]
-      [(null? (cdr lst)) #t]
-      [(compare? (car lst) (cadr lst)) compareElements((cdr lst) compare?)]
-      [else #f]
-      )
+  (if (null? compare?)
+      (cond
+        [(empty? lst) #t]
+        [(empty? (cdr lst)) #t]
+        [(<= (car lst) (cadr lst)) sorted?((cdr lst) '<=)]
+        [else #f]
+        )
+      (cond
+        [(empty? lst) #t]
+        [(empty? (cdr lst)) #t]
+        [(> (car lst) (cadr lst)) sorted?((cdr lst) compare?)]
+        [else #f]
     )
-  (compareElements lst compare?)
-  
+      )
   )
+  
 
-(sorted? '(1 2 3 4) <)
-|#
-
-(define (sorted? lst . compare?) empty)
+;(define (sorted? lst . compare?) empty)
 
 
 ;; or
@@ -363,10 +377,10 @@
 ; (Replace this comment with your procedure(s).)
 
 (define (inflate lst [value 1])
-  (map (lambda (x)
-         (if (number? x)
-             (+ x value)
-             x)
+  (map (lambda (l)
+         (if (number? l)
+             (+ l value)
+             l)
          ) 
     lst)
   )
@@ -652,6 +666,7 @@
 (test 'myassq (myassq 'b (map reverse dectohexalist)) '(b 11))
 (test 'myassq (myassq 'a dectohexalist) '())
 (test 'myassq (myassq 9 dectohexalist) '())
+|#
 
 
 (test 'sorted? (sorted? '(1 2 3 4) <) #t)
@@ -668,32 +683,34 @@
 (test 'sorted? (sorted? '(1 2 3 4 4 4)) #t)
 (test 'sorted? (sorted? '(1 2 3 4 3 2 1)) #f)
 
-(test 'inflate (inflate '(1 2 3)) '(2 3 4))
-(test 'inflate (inflate '(1)) '(2))
-(test 'inflate (inflate '()) '())
-(test 'inflate (inflate '(a b c 2 3 4)) '(a b c 3 4 5))
-(test 'inflate (inflate '((1) (2) (3))) '((1) (2) (3)))
+
+;(test 'inflate (inflate '(1 2 3)) '(2 3 4))
+;(test 'inflate (inflate '(1)) '(2))
+;(test 'inflate (inflate '()) '())
+;(test 'inflate (inflate '(a b c 2 3 4)) '(a b c 3 4 5))
+;(test 'inflate (inflate '((1) (2) (3))) '((1) (2) (3)))
 
 
 
 
-(test 'iterate (iterate 2 add5 10) '(7 12 17 22 27 32 37 42 47 52))
-(test 'iterate (iterate 0 (lambda (x) (+ x 1)) 3) '(1 2 3))
-(test 'iterate (iterate 1 (lambda (n) (* n 2)) 10) '(2 4 8 16 32 64 128 256 512 1024))
-(test 'iterate (iterate 1 (lambda (x) (* x -2)) 10) '(-2 4 -8 16 -32 64 -128 256 -512 1024))
-(test 'iterate (iterate 10 (lambda (n) (- n 1)) 10) '(9 8 7 6 5 4 3 2 1 0))
-(test 'iterate (iterate 3 (lambda (n) (+ n 2)) 10) '(5 7 9 11 13 15 17 19 21 23))
-(test 'iterate (iterate 100 collatz 25) '(50 25 76 38 19 58 29 88 44 22 11 34 17 52 26 13 40 20 10 5 16 8 4 2 1))
+
+;(test 'iterate (iterate 2 add5 10) '(7 12 17 22 27 32 37 42 47 52))
+;(test 'iterate (iterate 0 (lambda (x) (+ x 1)) 3) '(1 2 3))
+;(test 'iterate (iterate 1 (lambda (n) (* n 2)) 10) '(2 4 8 16 32 64 128 256 512 1024))
+;(test 'iterate (iterate 1 (lambda (x) (* x -2)) 10) '(-2 4 -8 16 -32 64 -128 256 -512 1024))
+;(test 'iterate (iterate 10 (lambda (n) (- n 1)) 10) '(9 8 7 6 5 4 3 2 1 0))
+;(test 'iterate (iterate 3 (lambda (n) (+ n 2)) 10) '(5 7 9 11 13 15 17 19 21 23))
+;(test 'iterate (iterate 100 collatz 25) '(50 25 76 38 19 58 29 88 44 22 11 34 17 52 26 13 40 20 10 5 16 8 4 2 1))
 
 
-(test 'compound (compound 100 collatz (lambda (x) (= x 1))) '(50 25 76 38 19 58 29 88 44 22 11 34 17 52 26 13 40 20 10 5 16 8 4 2 1))
-(test 'compound (compound 200 collatz (lambda (x) (= x 1)))  '(100 50 25 76 38 19 58 29 88 44 22 11 34 17 52 26 13 40 20 10 5 16 8 4 2 1))
-(test 'compound (compound 256 collatz (lambda (x) (= x 1)))  '(128 64 32 16 8 4 2 1))
+;(test 'compound (compound 100 collatz (lambda (x) (= x 1))) '(50 25 76 38 19 58 29 88 44 22 11 34 17 52 26 13 40 20 10 5 16 8 4 2 1))
+;(test 'compound (compound 200 collatz (lambda (x) (= x 1)))  '(100 50 25 76 38 19 58 29 88 44 22 11 34 17 52 26 13 40 20 10 5 16 8 4 2 1))
+;(test 'compound (compound 256 collatz (lambda (x) (= x 1)))  '(128 64 32 16 8 4 2 1))
 
-(test 'compound (compound 10 (lambda (n) (- n 1)) (lambda (n) (<= n 0))) '(9 8 7 6 5 4 3 2 1 0))
-(test 'compound (compound 0 add5 (lambda (x) (> x 50))) '(5 10 15 20 25 30 35 40 45 50 55))
-(test 'compound (compound 0 add5 (lambda (x) (>= x 50))) '(5 10 15 20 25 30 35 40 45 50))
-(test 'compound (compound 2 (lambda (n) (* n 2)) (lambda (x) (>= x 50))) '(4 8 16 32 64))
+;(test 'compound (compound 10 (lambda (n) (- n 1)) (lambda (n) (<= n 0))) '(9 8 7 6 5 4 3 2 1 0))
+;(test 'compound (compound 0 add5 (lambda (x) (> x 50))) '(5 10 15 20 25 30 35 40 45 50 55))
+;(test 'compound (compound 0 add5 (lambda (x) (>= x 50))) '(5 10 15 20 25 30 35 40 45 50))
+;(test 'compound (compound 2 (lambda (n) (* n 2)) (lambda (x) (>= x 50))) '(4 8 16 32 64))
 
 
 ;(test 'power-set (power-set '()) '(()))
@@ -702,11 +719,11 @@
 ;(test 'power-set (power-set '(1 2 3)) '(() (3) (2) (2 3) (1) (1 3) (1 2) (1 2 3)))
 
 
-(test 'all-factors (all-factors 20) '(1 2 4 5 10 20))
-(test 'all-factors (all-factors 32) '(1 2 4 8 16 32))
-(test 'all-factors (all-factors 97) '(1 97))
-(test 'all-factors (all-factors 1000) '(1 2 4 5 8 10 20 25 40 50 100 125 200 250 500 1000))
-(test 'all-factors (all-factors 30030) '(1 2 3 5 6 7 10 11 13 14 15 21 22 26 30 33 35 39 42 55 65 66 70 77 78 91 105 110 130 143 154 165 182 195 210 231 273 286 330 385 390 429 455 462 546 715 770 858 910 1001 1155 1365 1430 2002 2145 2310 2730 3003 4290 5005 6006 10010 15015 30030))
-|#
+;(test 'all-factors (all-factors 20) '(1 2 4 5 10 20))
+;(test 'all-factors (all-factors 32) '(1 2 4 8 16 32))
+;(test 'all-factors (all-factors 97) '(1 97))
+;(test 'all-factors (all-factors 1000) '(1 2 4 5 8 10 20 25 40 50 100 125 200 250 500 1000))
+;(test 'all-factors (all-factors 30030) '(1 2 3 5 6 7 10 11 13 14 15 21 22 26 30 33 35 39 42 55 65 66 70 77 78 91 105 110 130 143 154 165 182 195 210 231 273 286 330 385 390 429 455 462 546 715 770 858 910 1001 1155 1365 1430 2002 2145 2310 2730 3003 4290 5005 6006 10010 15015 30030))
+
 ;*********************************************************
 ;***** end of hw #1
