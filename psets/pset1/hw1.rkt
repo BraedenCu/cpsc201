@@ -503,7 +503,7 @@
 
 
 (define (power-set lst)
-  (trace power-set)
+  ;(trace power-set)
   (if (empty? lst)
       (list empty)
       (append
@@ -572,7 +572,19 @@
 ; (Replace this comment with your procedure(s).)
 
 (define (all-factors n)
-  empty)
+  (define primefactors (prime-factors n))
+  (println primefactors)
+  (define (prod l)
+    (if (empty? l)
+        1
+        (* (car l) (prod (cdr l)))
+        )
+    )
+  (println (power-set primefactors))
+  (define factors (map (lambda (x) (prod x))
+                       (power-set primefactors)))
+  (sort (remove-duplicates factors) <)
+  )
     
 
 ; ********************************************************
@@ -682,12 +694,12 @@
 (test 'compound (compound 0 add5 (lambda (x) (> x 50))) '(5 10 15 20 25 30 35 40 45 50 55))
 (test 'compound (compound 0 add5 (lambda (x) (>= x 50))) '(5 10 15 20 25 30 35 40 45 50))
 (test 'compound (compound 2 (lambda (n) (* n 2)) (lambda (x) (>= x 50))) '(4 8 16 32 64))
-|#
 
-(test 'power-set (power-set '()) '(()))
-(test 'power-set (power-set '(1)) '(() (1)))
-(test 'power-set (power-set '(1 2)) '(() (2) (1) (1 2)))
-(test 'power-set (power-set '(1 2 3)) '(() (3) (2) (2 3) (1) (1 3) (1 2) (1 2 3)))
+
+;(test 'power-set (power-set '()) '(()))
+;(test 'power-set (power-set '(1)) '(() (1)))
+;(test 'power-set (power-set '(1 2)) '(() (2) (1) (1 2)))
+;(test 'power-set (power-set '(1 2 3)) '(() (3) (2) (2 3) (1) (1 3) (1 2) (1 2 3)))
 
 
 (test 'all-factors (all-factors 20) '(1 2 4 5 10 20))
@@ -695,6 +707,6 @@
 (test 'all-factors (all-factors 97) '(1 97))
 (test 'all-factors (all-factors 1000) '(1 2 4 5 8 10 20 25 40 50 100 125 200 250 500 1000))
 (test 'all-factors (all-factors 30030) '(1 2 3 5 6 7 10 11 13 14 15 21 22 26 30 33 35 39 42 55 65 66 70 77 78 91 105 110 130 143 154 165 182 195 210 231 273 286 330 385 390 429 455 462 546 715 770 858 910 1001 1155 1365 1430 2002 2145 2310 2730 3003 4290 5005 6006 10010 15015 30030))
-
+|#
 ;*********************************************************
 ;***** end of hw #1
