@@ -114,20 +114,20 @@
 (define (bin2dec num)
   (define len (length num))
   (define rnum (reverse num))
+
   (define (convert n)
     (if (empty? n)
         0
         (+
          (* (car n) (expt 2 (- len (length n))))
          (convert (cdr n)))))
+
   (convert rnum)
 )
 
 (define (dec2bin n)
   (define result empty)
   (define (convert x)
-    ;(print x)
-    ;(print (truncate (/ (- x 1)2)))
     (cond [(equal? x 0) result]
           [(equal? (modulo x 2) 1) result (append '(1) (convert(truncate (/ (- x 1) 2))))]
           [(equal? (modulo x 2) 0) append result (append '(0) (convert(truncate (/ x 2))))]
@@ -142,8 +142,6 @@
 
 ; Write two procedures which convert hexadecimal numbers (base 16) to
 ; decimal and vice versa
-
-(hex2dec n)
 
 ; that takes a list of hexadecimal (base 16) digits and returns the
 ; corresponding decimal number.  Note that hexadecimal digits may be
@@ -176,11 +174,71 @@
 ; table lookup to convert hex digits to integers and vice versa
 ; ********************************************************
 
+; mapping function
+(define (convertinput n)
+  (cond
+    [(equal? n 'A) 10]
+    [(equal? n 'B) 11]
+    [(equal? n 'C) 12]
+    [(equal? n 'D) 13]
+    [(equal? n 'E) 14]
+    [(equal? n 'F) 15]
+    [(equal? n "a") 10]
+    [(equal? n "b") 11]
+    [(equal? n "c") 12]
+    [(equal? n "d") 13]
+    [(equal? n "e") 14]
+    [(equal? n "f") 15]
+    [else n]))
+
 (define (hex2dec num)
-  empty)
+  (define hex '(1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, E, F))
+  (define pairings (list (list 'A 10) (list 'B 11) (list 'C 12) (list 'D 13) (list 'E 14) (list 'F 15)
+                         (list 1 1) (list 2 2) (list 3 3) (list 4 4) (list 5 5) (list 6 6) (list 7 7)
+                         (list 8 8) (list 9 9) (list 'a 10) (list 'b 11) (list 'c 12) (list 'd 13)
+                         (list 'e 14) (list 'f 15) (list 0 0)))
+  (define len (length num))
+  (define rnum (reverse num))
+  (define (convert n)
+    (if (empty? n)
+        0
+        (+
+         (* (cadr (assq (car n) pairings)) (expt 16 (- len (length n))))
+         (convert (cdr n)))))
+  (convert rnum)
+  )
 
 (define (dec2hex n)
-  empty)
+  (define pairings (list (list 10 'A) (list 11 'B) (list 12 'C) (list 13 'D) (list 14 'E) (list 15 'F)
+                         (list 1 1) (list 2 2) (list 3 3) (list 4 4) (list 5 5) (list 6 6) (list 7 7)
+                         (list 8 8) (list 9 9) (list 10 'a) (list 11 'b) (list 12 'c) (list 13 'd)
+                         (list 14 'e) (list 15 'f) (list 0 0)))
+
+  (define result empty)
+  
+  (define (convert x)
+    (cond [(equal? x 0) result]
+          [(equal? (modulo x 16) 0) append result (append '(0) (convert(truncate (/ x 16))))]
+          [(equal? (modulo x 16) 1) result (append '(1) (convert(truncate (/ (- x 1) 16))))]
+          [(equal? (modulo x 16) 2) result (append '(2) (convert(truncate (/ (- x 2) 16))))]
+          [(equal? (modulo x 16) 3) result (append '(3) (convert(truncate (/ (- x 3) 16))))]
+          [(equal? (modulo x 16) 4) result (append '(4) (convert(truncate (/ (- x 4) 16))))]
+          [(equal? (modulo x 16) 5) result (append '(5) (convert(truncate (/ (- x 5) 16))))]
+          [(equal? (modulo x 16) 6) result (append '(6) (convert(truncate (/ (- x 6) 16))))]
+          [(equal? (modulo x 16) 7) result (append '(7) (convert(truncate (/ (- x 7) 16))))]
+          [(equal? (modulo x 16) 8) result (append '(8) (convert(truncate (/ (- x 8) 16))))]
+          [(equal? (modulo x 16) 9) result (append '(9) (convert(truncate (/ (- x 9) 16))))]
+          [(equal? (modulo x 16) 10) result (append '(A) (convert(truncate (/ (- x 10) 16))))]
+          [(equal? (modulo x 16) 11) result (append '(B) (convert(truncate (/ (- x 11) 16))))]
+          [(equal? (modulo x 16) 12) result (append '(C) (convert(truncate (/ (- x 12) 16))))]
+          [(equal? (modulo x 16) 13) result (append '(D) (convert(truncate (/ (- x 13) 16))))]
+          [(equal? (modulo x 16) 14) result (append '(E) (convert(truncate (/ (- x 14) 16))))]
+          [(equal? (modulo x 16) 15) result (append '(F) (convert(truncate (/ (- x 15) 16))))]
+          [else (result)]
+          )
+    )
+  (reverse (convert n))
+  )
 
 ; ********************************************************
 ; ** problem 3 ** (10 points)
