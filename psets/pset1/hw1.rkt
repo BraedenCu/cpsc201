@@ -1,5 +1,7 @@
 #lang racket
 
+(require racket/trace)
+
 (provide hours
 	 bin2dec
 	 dec2bin
@@ -218,7 +220,7 @@
   
   (define (convert x)
     (cond [(equal? x 0) result]
-          [(equal? (modulo x 16) 0) append result (append '(0) (convert(truncate (/ x 16))))]
+          [(equal? (modulo x 16) 0) result (append '(0) (convert(truncate (/ x 16))))]
           [(equal? (modulo x 16) 1) result (append '(1) (convert(truncate (/ (- x 1) 16))))]
           [(equal? (modulo x 16) 2) result (append '(2) (convert(truncate (/ (- x 2) 16))))]
           [(equal? (modulo x 16) 3) result (append '(3) (convert(truncate (/ (- x 3) 16))))]
@@ -305,8 +307,27 @@
 ;;  (sorted? '(1 2 3 4 3 2 1)) => #f
 ;;  
 
+#|
 (define (sorted? lst . compare?)
-  empty)
+
+  
+  (define (compareElements lst . compare?)
+    (cond
+      [(null? lst) #t]
+      [(null? (cdr lst)) #t]
+      [(compare? (car lst) (cadr lst)) compareElements((cdr lst) compare?)]
+      [else #f]
+      )
+    )
+  (compareElements lst compare?)
+  
+  )
+
+(sorted? '(1 2 3 4) <)
+|#
+
+(define (sorted? lst . compare?) empty)
+
 
 ;; or
 ; (define (sorted? lst [compare? <=])
@@ -342,12 +363,13 @@
 ; (Replace this comment with your procedure(s).)
 
 (define (inflate lst [value 1])
-  (map 
-    (lambda (x) 
-      (if (number? x) 
-          (+ x value) 
-          x)) 
-    lst))
+  (map (lambda (x)
+         (if (number? x)
+             (+ x value)
+             x)
+         ) 
+    lst)
+  )
 
 ; ********************************************************
 ; ** problem 6 ** (10 points)
@@ -375,11 +397,17 @@
 
 ; (iterate 100 collatz 25) => '(50 25 76 38 19 58 29 88 44 22 11 34 17 52 26 13 40 20 10 5 16 8 4 2 1)
 ; ********************************************************
- 
+
 ; (Replace this comment with your procedure(s).)
 
 (define (iterate start proc n)
-  empty)
+  (define (compute iter val) 
+    (if (= iter n)
+        (list val)
+        (cons val (compute (+ iter 1) (proc val)))))
+  (rest (compute 0 start))
+ )
+
 
 ; ********************************************************
 ; ** problem 7 ** (15 points)
@@ -426,7 +454,16 @@
 ; (Replace this comment with your procedure(s).)
 
 (define (compound start proc test)
-  empty)
+  (define (compute val)
+    (if (test val)
+       (list val)
+       (cons val (compute (proc val)))
+           )
+        )
+  (rest (compute start))
+  )
+
+;(test 'compound (compound 100 collatz (lambda (x) (= x 1))) '(50 25 76 38 19 58 29 88 44 22 11 34 17 52 26 13 40 20 10 5 16 8 4 2 1))
 
 ; ********************************************************
 ; ** problem 8 (15 points)
@@ -466,7 +503,18 @@
 
 
 (define (power-set lst)
-  empty)
+  (trace power-set)
+  (if (empty? lst)
+      (list empty)
+      (append
+       (power-set (cdr lst))
+       (map
+        (lambda (l)
+          (cons (car lst) l)) (power-set (cdr lst)))
+       )
+      )
+  )
+
 
 ; ********************************************************
 ; ** problem 9 (10 points)
@@ -582,7 +630,7 @@
 (test 'dec2hex (dec2hex 256) '(1 0 0))
 (test 'dec2hex (dec2hex 3735928559) '(D E A D B E E F))
 
-|#
+
 (define dectohexalist '((10 a) (11 b) (12 c) (13 d) (14 e) (15 f)))
 
 (test 'myassq (myassq 10 dectohexalist) '(10 a))
@@ -614,7 +662,8 @@
 (test 'inflate (inflate '(a b c 2 3 4)) '(a b c 3 4 5))
 (test 'inflate (inflate '((1) (2) (3))) '((1) (2) (3)))
 
-#|
+
+
 
 (test 'iterate (iterate 2 add5 10) '(7 12 17 22 27 32 37 42 47 52))
 (test 'iterate (iterate 0 (lambda (x) (+ x 1)) 3) '(1 2 3))
@@ -633,11 +682,13 @@
 (test 'compound (compound 0 add5 (lambda (x) (> x 50))) '(5 10 15 20 25 30 35 40 45 50 55))
 (test 'compound (compound 0 add5 (lambda (x) (>= x 50))) '(5 10 15 20 25 30 35 40 45 50))
 (test 'compound (compound 2 (lambda (n) (* n 2)) (lambda (x) (>= x 50))) '(4 8 16 32 64))
+|#
 
 (test 'power-set (power-set '()) '(()))
 (test 'power-set (power-set '(1)) '(() (1)))
 (test 'power-set (power-set '(1 2)) '(() (2) (1) (1 2)))
 (test 'power-set (power-set '(1 2 3)) '(() (3) (2) (2 3) (1) (1 3) (1 2) (1 2 3)))
+
 
 (test 'all-factors (all-factors 20) '(1 2 4 5 10 20))
 (test 'all-factors (all-factors 32) '(1 2 4 8 16 32))
@@ -645,6 +696,5 @@
 (test 'all-factors (all-factors 1000) '(1 2 4 5 8 10 20 25 40 50 100 125 200 250 500 1000))
 (test 'all-factors (all-factors 30030) '(1 2 3 5 6 7 10 11 13 14 15 21 22 26 30 33 35 39 42 55 65 66 70 77 78 91 105 110 130 143 154 165 182 195 210 231 273 286 330 385 390 429 455 462 546 715 770 858 910 1001 1155 1365 1430 2002 2145 2310 2730 3003 4290 5005 6006 10010 15015 30030))
 
-|#
 ;*********************************************************
 ;***** end of hw #1
