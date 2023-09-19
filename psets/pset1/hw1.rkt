@@ -264,13 +264,15 @@
 ;; I am nonplussed to have to say this, but the ULAs thought it was necessary.
 ;; Sheesh.
 
-
 ; ********************************************************
  
 ; (Replace empty below with your procedure.)
 
 (define (myassq value alist)
-  empty)
+  (cond
+    [(empty? alist) '()]
+    [(equal? value (car (car alist))) (car alist)]
+    [else (myassq value (cdr alist))]))
 
 ; ********************************************************
 ; ** problem 4 ** (10 points)
@@ -303,9 +305,9 @@
 ;;  (sorted? '(1 2 3 4 3 2 1)) => #f
 ;;  
 
-
 (define (sorted? lst . compare?)
   empty)
+
 ;; or
 ; (define (sorted? lst [compare? <=])
 ;   empty)
@@ -340,7 +342,12 @@
 ; (Replace this comment with your procedure(s).)
 
 (define (inflate lst [value 1])
-  empty)
+  (map 
+    (lambda (x) 
+      (if (number? x) 
+          (+ x value) 
+          x)) 
+    lst))
 
 ; ********************************************************
 ; ** problem 6 ** (10 points)
@@ -563,7 +570,7 @@
 (test 'dec2bin (dec2bin 128) '(1 0 0 0 0 0 0 0))
 (test 'dec2bin (dec2bin 127) '(1 1 1 1 1 1 1))
 
-|#
+
 
 (test 'hex2dec (hex2dec '(A)) 10)
 (test 'hex2dec (hex2dec '(F F)) 255)
@@ -575,9 +582,9 @@
 (test 'dec2hex (dec2hex 256) '(1 0 0))
 (test 'dec2hex (dec2hex 3735928559) '(D E A D B E E F))
 
+|#
 (define dectohexalist '((10 a) (11 b) (12 c) (13 d) (14 e) (15 f)))
 
-#| 
 (test 'myassq (myassq 10 dectohexalist) '(10 a))
 (test 'myassq (myassq 15 dectohexalist) '(15 f))
 (test 'myassq (myassq 10 (map reverse dectohexalist)) '())
@@ -585,6 +592,7 @@
 (test 'myassq (myassq 'b (map reverse dectohexalist)) '(b 11))
 (test 'myassq (myassq 'a dectohexalist) '())
 (test 'myassq (myassq 9 dectohexalist) '())
+
 
 (test 'sorted? (sorted? '(1 2 3 4) <) #t)
 (test 'sorted? (sorted? '(1 2 3 4) >) #f)
@@ -606,6 +614,7 @@
 (test 'inflate (inflate '(a b c 2 3 4)) '(a b c 3 4 5))
 (test 'inflate (inflate '((1) (2) (3))) '((1) (2) (3)))
 
+#|
 
 (test 'iterate (iterate 2 add5 10) '(7 12 17 22 27 32 37 42 47 52))
 (test 'iterate (iterate 0 (lambda (x) (+ x 1)) 3) '(1 2 3))
