@@ -111,19 +111,15 @@
 
 ; ********************************************************
 
-
-
 (define (bin2dec num)
   (define len (length num))
   (define rnum (reverse num))
-
   (define (convert n)
     (if (empty? n)
         0
         (+
          (* (car n) (expt 2 (- len (length n))))
          (convert (cdr n)))))
-
   (convert rnum)
 )
 
@@ -176,7 +172,7 @@
 ; table lookup to convert hex digits to integers and vice versa
 ; ********************************************************
 
-; mapping function
+; mapping function for converting to numerical digits (nonfunctional) 
 (define (convertinput n)
   (cond
     [(equal? n 'A) 10]
@@ -185,12 +181,12 @@
     [(equal? n 'D) 13]
     [(equal? n 'E) 14]
     [(equal? n 'F) 15]
-    [(equal? n "a") 10]
-    [(equal? n "b") 11]
-    [(equal? n "c") 12]
-    [(equal? n "d") 13]
-    [(equal? n "e") 14]
-    [(equal? n "f") 15]
+    [(equal? n 'a) 10]
+    [(equal? n 'b) 11]
+    [(equal? n 'c) 12]
+    [(equal? n 'd) 13]
+    [(equal? n 'd) 14]
+    [(equal? n 'e) 15]
     [else n]))
 
 (define (hex2dec num)
@@ -215,9 +211,8 @@
                          (list 1 1) (list 2 2) (list 3 3) (list 4 4) (list 5 5) (list 6 6) (list 7 7)
                          (list 8 8) (list 9 9) (list 10 'a) (list 11 'b) (list 12 'c) (list 13 'd)
                          (list 14 'e) (list 15 'f) (list 0 0)))
-
-  (define result empty)
   
+  (define result empty)
   (define (convert x)
     (cond [(equal? x 0) result]
           [(equal? (modulo x 16) 0) result (append '(0) (convert(truncate (/ x 16))))]
@@ -272,9 +267,11 @@
 
 (define (myassq value alist)
   (cond
-    [(empty? alist) '()]
+    [(null? alist) '()]
     [(equal? value (car (car alist))) (car alist)]
-    [else (myassq value (cdr alist))]))
+    [else (myassq value (cdr alist))]
+    )
+  )
 
 ; ********************************************************
 ; ** problem 4 ** (10 points)
@@ -309,13 +306,16 @@
 
 
 (define (sorted? lst . compare?)
-  (define compop (if (null? compare?)<=(car compare?)))
-  (if(or (null? lst) (null? (cdr lst)))
-      #t
-      (if(compop (car lst) (cadr lst))
-       (apply sorted? (cdr lst) compare?)
-       #f)
-      )
+  (define comparisonop (if (null? compare?)<=(car compare?)))
+  (if (null? lst)
+    #t
+    (if (null? (cdr lst))
+        #t
+        (if (comparisonop (car lst) (cadr lst))
+            (apply sorted? (cdr lst) compare?)
+            #f)
+        )
+    )
   )
 
 ;(define (sorted? lst . compare?) empty)
@@ -355,11 +355,7 @@
 ; (Replace this comment with your procedure(s).)
 
 (define (inflate lst [value 1])
-  (define convertedlst (map (lambda (l)
-                              (if (number? l)
-                                  (+ l value)
-                                  l))
-                            lst))
+  (define convertedlst (map (lambda (l) (if (number? l)(+ l value)l)) lst))
   convertedlst
   )
 
@@ -450,9 +446,9 @@
     (if (test val)
        (list val)
        (cons val (compute (proc val)))
-           )
-        )
-  (rest (compute start))
+       )
+    )
+  (cdr (compute start))
   )
 
 ;(test 'compound (compound 100 collatz (lambda (x) (= x 1))) '(50 25 76 38 19 58 29 88 44 22 11 34 17 52 26 13 40 20 10 5 16 8 4 2 1))
