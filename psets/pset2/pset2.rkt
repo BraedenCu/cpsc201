@@ -327,8 +327,34 @@ total 0
 ;; (types '(2/3 .666 "two-thirds")) => '(flonum rational string)
 
 ; ********************************************************
+
+; flonum, integer, rational, symbol, string, character, boolean
+; unknown type if none match
+; flatten the tree first, since you don't need to traverse the key in this case
+
+(define (type i)
+  (cond
+    ((integer? i) 'integer)
+    ((flonum? i) 'flonum)
+    ((rational? i) 'rational)
+    ((symbol? i) 'symbol)
+    ((string? i) 'string)
+    ((char? i) 'character)
+    ((boolean? i) 'boolean)
+    (else 'unknowntype)
+    )
+  )
+
 (define (types tree)
-  empty)
+  (define ftree (flatten tree))
+  (define typestree (map (lambda (x)
+                           (type x))
+                           ftree))
+  (remove-duplicates typestree)
+  )
+;HOW DO I SORT THIS???
+
+
 
 ; (Replace this comment with your procedure(s).)
 
