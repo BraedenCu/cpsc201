@@ -187,7 +187,29 @@ total 0
 ; (Replace this comment with your procedure(s).)
 
 (define (prod tree)
-  empty)
+  (define numfound #f) ; num found for empty lits edgecase
+  (define (rprod tree)
+    (cond
+      ((not (list? tree)) (if (number? tree) (begin (set! numfound #t) tree) 1)) ; edge case
+      ((empty? tree) 1) ; if tree is empty return 0
+      ((not (pair? tree)) 1) ; found leaf
+      (else
+       ((lambda (subtr)
+          (if (not (list? subtr))
+              (if (number? subtr) (subtr) 1) ; found leaf
+              (* (rprod (car subtr)) ; continue recursing through the subtrees
+                 (if (not (list? subtr)) 
+                     (if (number? subtr) (subtr) 1) ; found leaf
+                     (rprod (cdr subtr)))))) ; sum rest
+        tree)
+       )
+      )
+    )
+  (let ((ans (rprod tree))) ; checking if a number is found to cover edgecase of empty list + nested empty list
+    (if numfound
+        ans
+        'none))
+  )
 
 
 ; ********************************************************
