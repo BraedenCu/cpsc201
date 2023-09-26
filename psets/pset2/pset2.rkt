@@ -190,7 +190,11 @@ total 0
   (define numfound #f) ; num found for empty lits edgecase
   (define (rprod tree)
     (cond
-      ((not (list? tree)) (if (number? tree) (begin (set! numfound #t) tree) 1)) ; edge case
+      ((not (list? tree)) (if (number? tree)
+                              (begin
+                                (set! numfound #t)
+                                tree)
+                              1)) ; edge case
       ((empty? tree) 1) ; if tree is empty return 0
       ((not (pair? tree)) 1) ; found leaf
       (else
@@ -277,9 +281,31 @@ total 0
 
 ;; (Replace this comment with your procedure(s).)
 
-
 (define (average tree)
-  empty)
+  (define numfound #f) 
+  (define numelements 0)
+  (define total (sum tree))
+  
+  (define (ravg tree)
+    (cond
+      ((not (list? tree)) (if (number? tree)
+                              (begin
+                                (set! numfound #t)
+                                (set! numelements (add1 numelements))
+                                tree)
+                              0))
+      ((empty? tree) 0)
+      (else
+       (begin
+         (ravg (car tree))
+         (ravg (cdr tree))))
+      )
+    )
+  (ravg tree)
+  (if numfound
+      (/ total numelements)
+      'NA)
+  )
 
 ; ********************************************************
 ; ** problem 6 ** (10 points)
