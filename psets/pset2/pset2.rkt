@@ -144,8 +144,24 @@ total 0
 
 ; (Replace this comment with your procedure(s).)
 
-(define (sum tree)
-  empty)
+(define (sum tree)  
+  (cond
+    ((not (list? tree)) (if (number? tree) tree 0)) ; edge case
+    ((empty? tree) 0) ; if tree is empty return 0
+    ((not (pair? tree)) 1) ; found leaf
+    (else
+     ((lambda (subtr)
+        (if (not (list? subtr))
+            (if (number? subtr) subtr 0) ; found leaf
+            (+ (sum (car subtr)) ; continue recursing through the subtrees
+                 (if (not (list? subtr)) 
+                     (if (number? subtr) subtr 0) ; found leaf
+                     (sum (cdr subtr)))))) ; sum rest
+      tree)
+     )
+    )
+  )
+ 
 
 
 ; ********************************************************
