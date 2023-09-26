@@ -234,8 +234,25 @@ total 0
 ; (Replace this comment with your procedure(s).)
 
 (define (count-if pred tree)
-  empty)
-
+  (define (rprod tree)
+    (cond
+      ((not (list? tree)) (if (pred tree) 1 0)) ; edge case
+      ((empty? tree) 0) ; if tree is empty return 0
+      ((not (pair? tree)) 0) ; found leaf
+      (else
+       ((lambda (subtr)
+          (if (not (list? subtr))
+              (if (pred subtr) (subtr) 0) ; found leaf
+              (+ (rprod (car subtr)) ; continue recursing through the subtrees
+                 (if (not (list? subtr)) 
+                     (if (pred subtr) (subtr) 0) ; found leaf
+                     (rprod (cdr subtr)))))) ; sum rest
+        tree)
+       )
+      )
+    )
+  (rprod tree)
+  )
 
 ; ********************************************************
 ; ** problem 5 ** (10 points)
