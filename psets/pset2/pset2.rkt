@@ -61,7 +61,7 @@
 ; Decimal numbers (eg, 6.237) are fine.  Exclude time
 ; spent reading.
 
-(define hours 10)
+(define hours 4)
 
 ; ********************************************************
 ; ** problem 00 ** (1 fairly easy point)
@@ -103,19 +103,26 @@ total 0
 ; (depth '((((((0))))))) => 6
 
 ; ********************************************************
-(define (depth tree)
+(define (depth tree)  
   (cond
-    ((null? tree) 0)
-    ((not (pair? tree)) 1)
+    ((not (list? tree)) 0) ; if tree is not a list return 0
+    ((empty? tree) 0) ; if tree is empty return 0
+    ((not (pair? tree)) 1) ; if tree is leaf node return depth 1
     (else
-     (let ([subtr = tree]
+     ((lambda (subtr)
+        (if (not (list? subtr))
+            1 ; found leaf
+            (max (+ (depth (car subtr)) 1) ; continue recursing through the subtrees, using max to take the final maximum depth
+                 (if (not (list? subtr)) 
+                     1 ; found leaf
+                     (depth (cdr subtr)))))) ; calculate depth of the rest of the subtree
+      tree)
+     )
+    )
+  )
 
-     
-     (let loop((subtrees tree) (max-depth 1))
-       (if (null? subtrees)
-           max-depth
-           (loop (cdr subtrees) (max (+ (depth (car subtrees)) 1) max-depth))))))
- )
+;(trace depth)
+
 
 ; (Replace this comment with your procedure(s).)
 
@@ -379,6 +386,8 @@ total 0
 (test 'depth (depth '(1 2 3)) 1)
 (test 'depth (depth '(a (b (c (d))))) 4)
 (test 'depth (depth '((((((0))))))) 6)
+(test 'depth (depth '( ( (a (b (c (d) ) ) ) ) ( ( ( ( ( ( (0))))))) )) 8)
+(test 'depth (depth '(1 (2 3 (4)) 1)) 3)
 	
 (test 'sum (sum '(1 2 3 4)) 10)
 (test 'sum (sum '(a (1 (b (2 (3 "four")))))) 6)
