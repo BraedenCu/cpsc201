@@ -404,7 +404,16 @@ total 0
 
 ; ********************************************************
 (define (count-leaves tree)
-  empty)
+  (cond
+    ((empty? tree) 0) ; empty tree
+    ((not (pair? tree)) 1) ; entire tree is a leaf
+    (else
+     (+ (count-leaves (car tree)) ; leaves in car of tree
+        (count-leaves (cdr tree)) ; leaves in cdr of tree
+        )
+     )
+    )
+  ) 
 
 ; (Replace this comment with your procedures.)
 
