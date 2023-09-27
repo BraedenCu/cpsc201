@@ -84,7 +84,7 @@ total 0
 
 ; define xxxx below to be the correct UNIX command.
 
-(define xxxx "correct unix command")
+(define xxxx "mv file homework") ; mv file homework
 
 ; ********************************************************
 ; ** problem 1 ** (8 points)
@@ -334,8 +334,8 @@ total 0
 
 (define (type i)
   (cond
-    ((integer? i) 'integer)
     ((flonum? i) 'flonum)
+    ((integer? i) 'integer)
     ((rational? i) 'rational)
     ((symbol? i) 'symbol)
     ((string? i) 'string)
@@ -349,17 +349,10 @@ total 0
   (define ftree (flatten tree))
   (define typestree (map (lambda (x)
                            (type x))
-                           ftree))
-  (remove-duplicates typestree)
+                         ftree))
+  (define fftree (remove-duplicates typestree))
+  (sort fftree symbol<?)
   )
-
-;HOW DO I SORT THIS???
-;HOW DO I SORT THIS???
-;HOW DO I SORT THIS???
-;HOW DO I SORT THIS???
-;HOW DO I SORT THIS???
-
-
 
 ; (Replace this comment with your procedure(s).)
 
@@ -481,8 +474,20 @@ total 0
 ; (map-tree odd? '()) => '()
 
 ; ********************************************************
-(define (map-tree proc tree)
-  empty)
+(define (map-tree-working proc tree)
+  (cond
+    ((empty? tree) '()) ;
+    ((pair? tree) ; indicates that we have a branch
+     (cons (map-tree(car tree)) ; join current branch with next branch on same level of the tree
+           (if (list? (cdr tree)) 
+               (map map-tree(cdr tree)) ; apply map to cdr of pair
+               (map-tree (cdr tree))))
+     (cadr (proc tree))) ; convert
+    (else tree)
+    )
+  )
+
+(define (map-tree proc tree) empty)
 
 ; (Replace this comment with your procedure(s).)
 
