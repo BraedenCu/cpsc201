@@ -474,20 +474,19 @@ total 0
 ; (map-tree odd? '()) => '()
 
 ; ********************************************************
-(define (map-tree-working proc tree)
-  (cond
-    ((empty? tree) '()) ;
-    ((pair? tree) ; indicates that we have a branch
-     (cons (map-tree(car tree)) ; join current branch with next branch on same level of the tree
-           (if (list? (cdr tree)) 
-               (map map-tree(cdr tree)) ; apply map to cdr of pair
-               (map-tree (cdr tree))))
-     (cadr (proc tree))) ; convert
-    (else tree)
-    )
-  )
 
-(define (map-tree proc tree) empty)
+(define (map-tree proc tree)
+  (cond
+    ((empty? tree) '())
+    ((equal? (pair? tree) #f)
+     (proc tree)) ; found leaf
+    (else (cons
+           (map-tree proc (car tree)) ; find leaves in car
+           (map-tree proc (cdr tree))
+           )
+          )
+    )
+  ) ; find leaves in cdr
 
 ; (Replace this comment with your procedure(s).)
 
