@@ -105,9 +105,9 @@ total 0
 ; ********************************************************
 (define (depth tree)  
   (cond
-    ((not (list? tree)) 0) ; if tree is not a list return 0
-    ((empty? tree) 0) ; if tree is empty return 0
-    ((not (pair? tree)) 1) ; if tree is leaf node return depth 1
+    ((not (list? tree)) 0) 
+    ((empty? tree) 0) 
+    ((not (pair? tree)) 1) 
     (else
      ((lambda (subtr)
         (if (not (list? subtr))
@@ -147,7 +147,7 @@ total 0
 (define (sum tree)  
   (cond
     ((not (list? tree)) (if (number? tree) tree 0)) ; edge case
-    ((empty? tree) 0) ; if tree is empty return 0
+    ((empty? tree) 0) 
     ((not (pair? tree)) 1) ; found leaf
     (else
      ((lambda (subtr)
@@ -352,6 +352,11 @@ total 0
                            ftree))
   (remove-duplicates typestree)
   )
+
+;HOW DO I SORT THIS???
+;HOW DO I SORT THIS???
+;HOW DO I SORT THIS???
+;HOW DO I SORT THIS???
 ;HOW DO I SORT THIS???
 
 
@@ -382,7 +387,18 @@ total 0
 
 ; ********************************************************
 (define (hextree tree)
-  empty)
+  (cond
+    ((empty? tree) '()) ;
+    ((pair? tree) ; indicates that we have a branch
+     (cons (hextree(car tree)) ; join current branch with next branch on same level of the tree
+           (if (list? (cdr tree)) 
+               (map hextree(cdr tree)) ; apply map to cdr of pair
+               (hextree (cdr tree)))))
+    ((and (number? tree) (<= 10 tree 15))
+     (cadr (assoc tree dectohexalist))) ; convert
+    (else tree)
+    )
+  )
 
 ; (Replace this comment with your procedure(s).)
 
@@ -405,7 +421,11 @@ total 0
 
 ; ********************************************************
 (define (tree-min tree)
-  empty)
+  (define ftree (flatten tree))
+  (cond
+    ((empty? ftree) '())
+    (else (apply min ftree)))
+  )
 
 ; (Replace this comment with your procedure(s).)
 
@@ -532,6 +552,8 @@ total 0
 (test 'average (average '(a b c d e 2 3 4)) 3)
 (test 'average (average '()) 'NA)
 (test 'average (average '(1.2 1.3 1.4 1.5)) 1.35)
+(test 'average (average '(10 (10 (10 (10 10 10))))) 10)
+
 
 (test 'types (types '(1 1 1 1)) '(integer))
 (test 'types (types '(1 ((a)))) '(integer symbol))
@@ -548,7 +570,7 @@ total 0
 (test 'hextree (hextree '()) '())
 
 (test 'tree-min (tree-min '(1 2 3)) 1)
-(test 'tree-min (tree-min '(1 (2 (-3)))) -3)
+(test 'tree-min (tree-min '(1 (2 -4 -6 (-3)))) -6)
 (test 'tree-min (tree-min '()) '())
 (test 'tree-min (tree-min '(((((((((7)))))))))) 7)
 (test 'tree-min (tree-min '((((((((()))))))))) '())
