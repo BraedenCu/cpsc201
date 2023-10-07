@@ -308,6 +308,7 @@ total 0
 ; (i-lookup 'q3 1 tm1) => #f
 ; ****************************************************************
 
+
 (define (i-match? state symbol inst)
   (and (equal? state (ins-c-state inst))
        (equal? symbol (ins-c-symbol inst))))
@@ -317,6 +318,7 @@ total 0
     ((null? mach) #f)
     ((i-match? state symbol (car mach)) (car mach))
     (else (i-lookup state symbol (cdr mach)))))
+
 
 ; ****************************************************************
 ; Representation of a Turing machine configuration.
@@ -401,7 +403,11 @@ total 0
 ; ****************************************************************
 
 (define (halted? mach config)
-  (not (i-lookup (conf-state config) (conf-symbol config) mach))) ; all we are doing is checking too see if a symbol / state matches, allowing the machine to continue running
+  ;(not (i-lookup (conf-state config) (conf-symbol config) mach))) ; all we are doing is checking too see if a symbol / state matches, allowing the machine to continue running
+  (not (ormap (lambda (instruction)
+                (and (equal? (conf-state config) (ins-c-state instruction))
+                     (equal? (conf-symbol config) (ins-c-symbol instruction))))
+              mach)))
 
 (define (change-state new-state config)
   (conf new-state (conf-ltape config) (conf-symbol config) (conf-rtape config))) ; all were doing is using creating a duplicate conf struct using the new-state as the state
@@ -411,7 +417,32 @@ total 0
 
 ; ****************************************************************
 ; ** problem 4 ** (10 points)
-; Write one procedure
+; Write one procedure; ****************************************************************
+; ** problem 3 (9 points)
+; Write the following three procedures.
+
+; (halted? mach config)
+; returns #t if the Turing machine mach is halted in machine configuration config 
+; (ie, no instruction of the machine matches the current state and symbol 
+; in configuration config) and returns #f otherwise.
+
+; (change-state new-state config)
+; takes a configuration config and returns a configuration
+; in which the state of the machine is changed to new-state.
+
+; (write-symbol new-symbol config) takes a configuration config and
+; returns a configuration in which the symbol scanned by 
+; the read/write head has been replaced by new-symbol.
+
+; Examples
+; (halted? tm1 (conf 'q1 '(1 1 0) 'b '())) => #f
+; (halted? (list (ins 'q1 'b 'q2 'b 'R)) (conf 'q2 '() 'b '())) => #t
+; (change-state 'q2 (conf 'q1 '(0) 1 '())) => (conf 'q2 '(0) 1 '())
+; (change-state 'q13 (conf 'q4 '(0 1 1) 'b '())) => (conf 'q13 '(0 1 1) 'b '())
+; (write-symbol 1 (conf 'q5 '(0) 0 '(1 1))) => (conf 'q5 '(0) 1 '(1 1))
+; (write-symbol 'c (conf 'q2 '(0 0 1) 1 '(1 1))) => (conf 'q2 '(0 0 1) 'c '(1 1))
+; (write-symbol 'b (conf 'q3 '(1) 0 '())) => (conf 'q3 '(1) 'b '())
+; ****************************************************************
 
 ; (normalize config)
 ; takes a Turing machine configuration config and returns an equivalent 
@@ -428,8 +459,8 @@ total 0
 ; (normalize (conf 'q4 '(b b) 'b '(b b b))) => (conf 'q4 '() 'b '())
 ; ****************************************************************
 
-(define (normalize config)
 
+(define (normalize config)
   ; need a helper to iterate over the lists and trim the b's from the leftmost side
   (define (removebsleft lst)
     (if (or (empty? lst) (not (eq? (car lst) 'b)))
@@ -447,6 +478,8 @@ total 0
         (conf-symbol config)
         ((lambda (rtape) (removebsright rtape)) (conf-rtape config))) ; same for rtape
   )
+
+
 
 ; ****************************************************************
 ; ** problem 5 ** (10 points)
@@ -475,6 +508,7 @@ total 0
 
 ; all but last element of a list -- uses Racket's drop-right
 
+#|
 (define (shift-head-left config)
   (let ((symbol (if (empty? (conf-ltape config))
                     'b
@@ -494,6 +528,35 @@ total 0
                    '()
                    (cdr (conf-rtape config)))))
     (normalize (conf (conf-state config) ltape symbol rtape))))
+|#
+
+(define (shift-head-left config)
+  (let ((symbol (if (empty? (conf-ltape config))
+                    'b
+                    (car (conf-ltape config))))
+        (ltape (if (empty? (conf-ltape config))
+                   '()
+                   (cdr (conf-ltape config))))
+        
+        ;(rtape (cons (conf-symbol config) (conf-rtape config)))) ; something wrong here
+        (rtape  (cons (conf-symbol config) (conf-rtape config)))) ;(reverse (cons (conf-symbol config) (reverse (conf-ltape config))))
+
+    (normalize (conf (conf-state config) ltape symbol rtape))))
+     
+(define (shift-head-right config)
+  (let ((symbol (if (empty? (conf-rtape config))
+                    'b
+                    (car (conf-rtape config))))
+
+        (ltape (reverse (cons (conf-symbol config) (reverse (conf-ltape config))))) ;(reverse (cons (conf-symbol config) (reverse (conf-ltape config))))
+
+        (rtape (if (empty? (conf-rtape config))
+                   '()
+                   (cdr (conf-rtape config)))))
+    (normalize (conf (conf-state config) ltape symbol rtape))))
+
+
+; (shift-head-right (conf 'q8 '(1 0 1 1) 'b '())) => (conf 'q8 '(1 0 1 1 b) 'b '())
 
 ; ****************************************************************
 ; ** problem 6 ** (15 points)
@@ -525,19 +588,29 @@ total 0
   ; shift head based on the symbol
 
 (define (next-config mach config)
-  (println config)
-  (if (halted? mach config)
-      (normalize config)  ; return the same config if halted
-      (let* ((ruleset (i-lookup (conf-state config) (conf-symbol config) mach)) ; returns f if no match, otherwise returns next ruleset
-             (new-state (ins-n-state ruleset)) 
-             (new-symbol (ins-n-symbol ruleset))
-             (direction (ins-dir ruleset)))
-        ; now we have determined new steps for turing machine to take
-        (cond ((eq? direction 'L)
-               ((println "shift left")(shift-head-left (write-symbol new-symbol (change-state new-state config)))))
-              ((eq? direction 'R)
-               ((println "shift right")(shift-head-right (write-symbol new-symbol (change-state new-state config)))))
-              (else (normalize config)))))) ; if direction is neither L nor R, return same config as a safe default
+
+  (define (next-config-helper mach config)
+    (if (halted? mach config)
+      
+        (normalize config)  ; return the same config if halted
+      
+        (let* ((newconfig (i-lookup (conf-state config) (conf-symbol config) mach)) ; search turing machine for nextconfiguration
+               (newstate (ins-n-state newconfig)) 
+               (newsymbol (ins-n-symbol newconfig))
+               (newdir (ins-dir newconfig)))
+          (println config)
+          (println newconfig)
+          ; now we have determined next steps for turing machine to take
+          (cond ((eq? newdir 'R)
+                 (shift-head-right (write-symbol newsymbol (change-state newstate config))))
+                ((eq? newdir 'L)
+                 (println "shifting left")
+                 (shift-head-left (write-symbol newsymbol (change-state newstate config)))
+                 (println (shift-head-left (write-symbol newsymbol (change-state newstate config)))))
+                (else (normalize config))))))
+
+  (normalize (next-config-helper mach config))
+  )
 
 ; ****************************************************************
 ; If your procedures are working, then you should
