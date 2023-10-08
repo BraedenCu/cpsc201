@@ -1,4 +1,4 @@
-#lang racket
+ #lang racket
 
 (provide hours
          ins ins-c-state ins-c-symbol ins-n-state ins-n-symbol ins-dir
@@ -238,38 +238,40 @@ total 0
 ; ****************************************************************
 (define tm-reverse
   (list
-   ; Move right, replacing 0 and 1 with X and Y, respectively
-   (ins 'q1 0 'q2 'X 'R)
-   (ins 'q1 1 'q3 'Y 'R)
+   ; move to the rightmost end of the tape
+   (ins 'q1 0 'q1 0 'R)        
+   (ins 'q1 1 'q1 1 'R)        
+   (ins 'q1 'b 'q2 'b 'L)      
 
-   ; Move right, finding the end of the input string
-   (ins 'q2 0 'q2 0 'R)
-   (ins 'q2 1 'q2 1 'R)
-   (ins 'q3 0 'q3 0 'R)
-   (ins 'q3 1 'q3 1 'R)
+   ; if the last digit is a zero, place an x. if its a 1, place a y
+   (ins 'q2 0 'q3 'x 'L)       
+   (ins 'q2 1 'q4 'y 'L)
+
+   ; add 0 to leftmost end of tape
+   (ins 'q3 0 'q3 0 'L)        
+   (ins 'q3 1 'q3 1 'L)        
+   (ins 'q3 'b 'q6 0 'R)       
+
+   ; add 1 to leftmost end of the tape
+   (ins 'q4 0 'q4 0 'L)        
+   (ins 'q4 1 'q4 1 'L)        
+   (ins 'q4 'b 'q5 1 'R) ; move right after reaching beginning       
+
+   ; return to the rightmost end and clear x and y, convert back into blanks
+   (ins 'q5 0 'q5 0 'R)        
+   (ins 'q5 1 'q5 1 'R)
+   (ins 'q5 'x 'q6 'b 'L)      
+   (ins 'q5 'y 'q6 'b 'L)
+
+   ; the above steps are all working. Now all we have to do is move the list back towards the beginning
    
-   ; Write reversed of initially replaced symbol and move left
-   (ins 'q2 'b 'q4 1 'L)
-   (ins 'q3 'b 'q5 0 'L)
-   
-   ; Move left to find the marked symbol X or Y
-   (ins 'q4 0 'q4 0 'L)
-   (ins 'q4 1 'q4 1 'L)
-   (ins 'q5 0 'q5 0 'L)
-   (ins 'q5 1 'q5 1 'L)
+   ; move to the leftmost end until hitting the blank
+   (ins 'q6 0 'q6 0 'L)        
+   (ins 'q6 1 'q6 1 'L)        
+   (ins 'q6 'b 'q7 'b 'R)
+   ))
 
-   ; Replace X and Y back to 0 and 1, then move right to repeat
-   (ins 'q4 'X 'q1 0 'R)
-   (ins 'q5 'Y 'q1 1 'R)
 
-   ; When reached back at the beginning, move to halt state
-   (ins 'q4 'b 'q6 'b 'R)
-   (ins 'q5 'b 'q6 'b 'R)
-
-   ; Halt state
-   (ins 'q6 'b 'q6 'b 'S) ; assuming 'S is a halting state
-  )
-)
 
 ; ****************************************************************
 ; ** problem 2 (10 points)
@@ -527,7 +529,7 @@ total 0
   ; shift head based on the symbol
 
 (define (next-config mach config)
-  (println config)
+  ;(println config)
   (if (halted? mach config)
       (normalize config)  ; return the same config if halted
       (let* ((ruleset (i-lookup (conf-state config) (conf-symbol config) mach)) ; returns f if no match, otherwise returns next ruleset
@@ -535,17 +537,17 @@ total 0
              (new-symbol (ins-n-symbol ruleset))
              (direction (ins-dir ruleset)))
         ; now we have determined new steps for turing machine to take
-        (println ruleset)
+        ;(println ruleset)
         (cond ((eq? direction 'L)
-               (println "shifting left")
-               (println new-state)
-               (println new-symbol)
-               (println direction)
-               (println (change-state new-state config))
+               ;(println "shifting left")
+               ;(println new-state)
+               ;(println new-symbol)
+               ;(println direction)
+               ;(println (change-state new-state config))
                (shift-head-left (write-symbol new-symbol (change-state new-state config))))
               
               ((eq? direction 'R)
-                (println "shifting right")
+                ;(println "shifting right")
                 (shift-head-right (write-symbol new-symbol (change-state new-state config))))
 
               (else (normalize config)))))) ; if direction is neither L nor R, return same config as a safe default
@@ -731,10 +733,10 @@ total 0
 (test 'next-config (next-config tm1 (conf 'q2 '() 'b '(1 1 0))) (conf 'q3 '() 1 '(1 0)))
 (test 'next-config (next-config tm1 (conf 'q3 '() 1 '(1 0))) (conf 'q3 '() 1 '(1 0)))
 
-;(test 'tm-reverse (simulate-lite tm-reverse (conf 'q1 '() 1 '()) 20) '(() 1 ()))
-;(test 'tm-reverse (simulate-lite tm-reverse (conf 'q1 '() 1 '(1 0)) 200) '(() 0 (1 1)))
-;(test 'tm-reverse (simulate-lite tm-reverse (conf 'q1 '() 0 '(0 0 1)) 200) '(() 1 (0 0 0)))
-;(test 'tm-reverse (simulate-lite tm-reverse (conf 'q1 '() 1 '(0 1 0 1 1)) 200) '(() 1 (1 0 1 0 1)))
+(test 'tm-reverse (simulate-lite tm-reverse (conf 'q1 '() 1 '()) 20) '(() 1 ()))
+(test 'tm-reverse (simulate-lite tm-reverse (conf 'q1 '() 1 '(1 0)) 200) '(() 0 (1 1)))
+(test 'tm-reverse (simulate-lite tm-reverse (conf 'q1 '() 0 '(0 0 1)) 200) '(() 1 (0 0 0)))
+(test 'tm-reverse (simulate-lite tm-reverse (conf 'q1 '() 1 '(0 1 0 1 1)) 200) '(() 1 (1 0 1 0 1)))
 
 ;(test 'tm-convert (simulate-lite tm-convert (conf 'q1 '() 1 '()) 20) '(() x ()))
 ;(test 'tm-convert (simulate-lite tm-convert (conf 'q1 '() 1 '(1)) 200) '(() x (x x)))
