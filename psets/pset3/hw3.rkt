@@ -59,7 +59,7 @@ total 0
 
 ; define xxxx below to be the correct UNIX command.
 
-(define xxxx "touch file")
+(define xxxx "date > file")
 
 ; ****************************************************************
 ; Turing machines were described in the lectures; see also the lecture
@@ -272,9 +272,9 @@ total 0
    (ins 'q7 1 'q7 1 'R)
    (ins 'q7 'b 'q8 'b 'L)
 
+   ; These last two functions simply remove the last digit of the reversed binary string
+   ; then go back to the first digit to format it for the conclusion
 
-   ; These last two functions simply remove the last digit of the reversed binary string then go back to the first digit to format it for the conclusion
-   ; return back to left side
    (ins 'q8 0 'q9 'b 'L)
    (ins 'q8 1 'q9 'b 'L)
 
@@ -632,7 +632,16 @@ total 0
 ; ****************************************************************
 
 (define tm-convert
-  empty)
+  (list
+   ; move to the rightmost end of the tape
+   (ins 'q1 0 'q1 'x 'R)        
+   (ins 'q1 1 'q1 'x 'R)        
+   (ins 'q1 'b 'q2 'b 'L)      
+
+   ; return back to left side fr
+   (ins 'q2 'x 'q2 'x 'L)
+   (ins 'q2 'x 'q2 'x 'L)
+   (ins 'q2 'b 'q3 'b 'R)))
 
 ; ****************************************************************
 ; ** problem 8 ** (15 points)
@@ -752,10 +761,10 @@ total 0
 (test 'tm-reverse (simulate-lite tm-reverse (conf 'q1 '() 0 '(0 0 1)) 200) '(() 1 (0 0 0)))
 (test 'tm-reverse (simulate-lite tm-reverse (conf 'q1 '() 1 '(0 1 0 1 1)) 200) '(() 1 (1 0 1 0 1)))
 
-;(test 'tm-convert (simulate-lite tm-convert (conf 'q1 '() 1 '()) 20) '(() x ()))
-;(test 'tm-convert (simulate-lite tm-convert (conf 'q1 '() 1 '(1)) 200) '(() x (x x)))
-;(test 'tm-convert (simulate-lite tm-convert (conf 'q1 '() 1 '(1 0)) 200) '(() x (x x x x x)))
-;(test 'tm-convert (simulate-lite tm-convert (conf 'q1 '() 1 '(1 1 1)) 400) '(() x (x x x x x x x x x x x x x x)))
+(test 'tm-convert (simulate-lite tm-convert (conf 'q1 '() 1 '()) 20) '(() x ()))
+(test 'tm-convert (simulate-lite tm-convert (conf 'q1 '() 1 '(1)) 200) '(() x (x x)))
+(test 'tm-convert (simulate-lite tm-convert (conf 'q1 '() 1 '(1 0)) 200) '(() x (x x x x x)))
+(test 'tm-convert (simulate-lite tm-convert (conf 'q1 '() 1 '(1 1 1)) 400) '(() x (x x x x x x x x x x x x x x)))
 
 ;(test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 0 '()) 20) '(() 0 ()))
 ;(test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 1 '()) 20) '(() 1 ()))
