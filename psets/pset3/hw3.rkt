@@ -244,8 +244,8 @@ total 0
    (ins 'q1 'b 'q2 'b 'L)      
 
    ; if the last digit is a zero, place an x. if its a 1, place a y
-   (ins 'q2 0 'q3 'x 'L)       
-   (ins 'q2 1 'q4 'y 'L)
+   (ins 'q2 0 'q3 0 'L)       
+   (ins 'q2 1 'q4 1 'L)
 
    ; add 0 to leftmost end of tape
    (ins 'q3 0 'q3 0 'L)        
@@ -255,20 +255,34 @@ total 0
    ; add 1 to leftmost end of the tape
    (ins 'q4 0 'q4 0 'L)        
    (ins 'q4 1 'q4 1 'L)        
-   (ins 'q4 'b 'q5 1 'R) ; move right after reaching beginning       
+   (ins 'q4 'b 'q5 1 'R)     
 
-   ; return to the rightmost end and clear x and y, convert back into blanks
-   (ins 'q5 0 'q5 0 'R)        
-   (ins 'q5 1 'q5 1 'R)
-   (ins 'q5 'x 'q6 'b 'L)      
-   (ins 'q5 'y 'q6 'b 'L)
-
-   ; the above steps are all working. Now all we have to do is move the list back towards the beginning
+   ; return to the left end and clear x and y, convert back into blanks
+   (ins 'q5 0 'q5 0 'L)        
+   (ins 'q5 1 'q5 1 'L)
+   (ins 'q5 'b 'q7 'b 'R)
    
-   ; move to the leftmost end until hitting the blank
+   ; return to the left end and clear x and y, convert back into blanks
    (ins 'q6 0 'q6 0 'L)        
-   (ins 'q6 1 'q6 1 'L)        
+   (ins 'q6 1 'q6 1 'L)
    (ins 'q6 'b 'q7 'b 'R)
+
+   ; return to the right end and remove the last digit
+   (ins 'q7 0 'q7 0 'R)        
+   (ins 'q7 1 'q7 1 'R)
+   (ins 'q7 'b 'q8 'b 'L)
+
+
+   ; These last two functions simply remove the last digit of the reversed binary string then go back to the first digit to format it for the conclusion
+   ; return back to left side
+   (ins 'q8 0 'q9 'b 'L)
+   (ins 'q8 1 'q9 'b 'L)
+
+   ; return back to left side fr
+   (ins 'q9 0 'q9 0 'L)
+   (ins 'q9 1 'q9 1 'L)
+   (ins 'q9 'b 'q10 'b 'R)
+  
    ))
 
 
