@@ -282,7 +282,6 @@ total 0
    (ins 'q9 0 'q9 0 'L)
    (ins 'q9 1 'q9 1 'L)
    (ins 'q9 'b 'q10 'b 'R)
-  
    ))
 
 
@@ -573,7 +572,7 @@ total 0
 ; shows the successive normalized configurations 
 ; of Turing machine tm1 when run from the given configuration.
 
-;> (simulate tm1 (conf 'q1 '() 1 '(1 0 1 0)) 20)
+; (simulate tm1 (conf 'q1 '() 1 '(1 0 1 0)) 20)
 ;(list
 ; (conf 'q1 '() 1 '(1 0 1 0))
 ; (conf 'q1 '(0) 1 '(0 1 0))
@@ -633,15 +632,28 @@ total 0
 
 (define tm-convert
   (list
-   ; move to the rightmost end of the tape
-   (ins 'q1 0 'q1 'x 'R)        
-   (ins 'q1 1 'q1 'x 'R)        
-   (ins 'q1 'b 'q2 'b 'L)      
+   ;; Move to the rightmost bit
+   (ins 'q1 0 'q1 0 'R)   
+   (ins 'q1 1 'q1 1 'R)        
+   (ins 'q1 'b 'q2 'b 'L)   ;; Once you find a blank, move to state q2 and go left
 
-   ; return back to left side fr
-   (ins 'q2 'x 'q2 'x 'L)
-   (ins 'q2 'x 'q2 'x 'L)
-   (ins 'q2 'b 'q3 'b 'R)))
+   ;; Check the last bit and generate 'x's or just move to the left
+   (ins 'q2 0 'q3 'b 'L)    ;; If last bit is 0, delete it and move to the left 
+   (ins 'q2 1 'q4 'b 'L)    ;; If last bit is 1, delete it, generate 'x' and move to the left 
+
+   ;; Find the leftmost 'x' or bit
+   (ins 'q3 'b 'q5 'x 'R)   ;; If blank is encountered, move to right to find first 'x'
+   (ins 'q3 1 'q3 1 'L)     ;; If 1 is encountered, keep moving left
+   (ins 'q3 0 'q3 0 'L)     ;; If 0 is encountered, keep moving left
+   
+   (ins 'q4 'b 'q5 'x 'R)   ;; If blank is encountered, move to right to find first 'x'
+   (ins 'q4 'x 'q4 'x 'L)     ;; If 'x' is encountered, keep moving left
+   
+   ;; Back to the first bit of the binary number
+   (ins 'q5 0 'q1 0 'R)     ;; If 0 is encountered, go to q1 and start again
+   (ins 'q5 1 'q1 1 'R)     ;; If 1 is encountered, go to q1 and start again
+   (ins 'q5 'x 'q5 'x 'R)     ;; If 'x' is encountered, keep moving right
+   (ins 'q5 'b 'qH 'b 'S))) ;; If blank is encountered, halt
 
 ; ****************************************************************
 ; ** problem 8 ** (15 points)
@@ -690,7 +702,52 @@ total 0
 ; ****************************************************************
 
 (define tm-sort
-  empty)
+  (list
+       ; replace all 0's with x's, move to right of the tape
+       (ins 'q1 0 'q1 'x 'R)
+       (ins 'q1 1 'q1 1 'R)
+       (ins 'q1 'b 'q2 'b 'L)
+
+       ; move back to beginning
+       (ins 'q2 'x 'q2 'x 'L)
+       (ins 'q2 1 'q2 1 'L)
+       (ins 'q2 0 'q2 0 'L)
+       (ins 'q2 'b 'q3 'b 'R)
+
+       ; find closest 'x, if you hit 'b it means that all x's have been converted into y's, so move to q5
+       (ins 'q3 1 'q3 1 'R)
+       (ins 'q3 0 'q3 0 'R)
+       (ins 'q3 'y 'q3 'y 'R)
+       (ins 'q3 'x 'q4 'y 'L)
+       (ins 'q3 'b 'q5 'b 'L)
+
+       ; move back to beginning, but add a 0
+       (ins 'q4 'x 'q4 'x 'L)
+       (ins 'q4 'y 'q4 'y 'L)
+       (ins 'q4 1 'q4 1 'L)
+       (ins 'q4 0 'q4 0 'L)
+       (ins 'q4 'b 'q3 0 'R) ; add 0 to beginning, then find next 'x once again
+
+       ; simply replace all y's with 'b and place head on the first symbol
+       (ins 'q5 'y 'q5 'b 'L)
+       (ins 'q5 1 'q5 1 'L)
+       (ins 'q5 0 'q5 0 'L)
+       (ins 'q5 'b 'q6 'b 'R)
+
+       ; now we need to account for the 'z elements ('y -> 'z) by moving the 1's in front of them then converting them into 'b
+       ;(ins 'q6 0 'q6 0 'R)
+       ;(ins 'q6 'z 'q6 'z 'R)
+       ;(ins 'q6 'b 'q10 'b 'L) ; no more 1's to deal with, now we should just have the z's left to convert to 'bs
+       ;(ins 'q6 1 'q7 'z 'L) ; replace nearest 1 with a z
+       
+       ; now locate the closest 0, and place the 1 in its place and add anoter 0 to the beginning
+       ;(ins 'q7 1 'q7 1 'L)
+       ;(ins 'q7 0 'q8 1 'L) ; replace last 0 with a one
+       
+       ;(ins 'q8 0 'q8 0 'L) ; move back too the beginning
+       ;(ins 'q8 1 'q8 1 'L)
+       ;(ins 'q8 'b 'q6 0 'R) ; added one back to beginning
+  ))
 
 ; ********  testing, testing. 1, 2, 3 ....
 ; ********************************************************
@@ -766,11 +823,11 @@ total 0
 (test 'tm-convert (simulate-lite tm-convert (conf 'q1 '() 1 '(1 0)) 200) '(() x (x x x x x)))
 (test 'tm-convert (simulate-lite tm-convert (conf 'q1 '() 1 '(1 1 1)) 400) '(() x (x x x x x x x x x x x x x x)))
 
-;(test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 0 '()) 20) '(() 0 ()))
-;(test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 1 '()) 20) '(() 1 ()))
-;(test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 0 '(0)) 200) '(() 0 (0)))
-;(test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 1 '(1 0)) 200) '(() 0 (1 1)))
-;(test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 1 '(0 1 1 0 1 1)) 200) '(() 0 (0 1 1 1 1 1)))
+(test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 0 '()) 20) '(() 0 ()))
+(test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 1 '()) 20) '(() 1 ()))
+(test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 0 '(0)) 200) '(() 0 (0)))
+(test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 1 '(1 0)) 200) '(() 0 (1 1)))
+(test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 1 '(0 1 1 0 1 1)) 200) '(() 0 (0 1 1 1 1 1)))
 
 
 ; *************** end of hw3.rkt *********************************
