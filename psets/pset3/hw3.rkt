@@ -238,7 +238,7 @@ total 0
 ; ****************************************************************
 (define tm-reverse
   (list
-   ; move to the rightmost end of the tape
+   ; go to right end of tape
    (ins 'q1 0 'q1 0 'R)        
    (ins 'q1 1 'q1 1 'R)        
    (ins 'q1 'b 'q2 'b 'L)      
@@ -572,21 +572,21 @@ total 0
 ; shows the successive normalized configurations 
 ; of Turing machine tm1 when run from the given configuration.
 
-; (simulate tm1 (conf 'q1 '() 1 '(1 0 1 0)) 20)
-;(list
-; (conf 'q1 '() 1 '(1 0 1 0))
-; (conf 'q1 '(0) 1 '(0 1 0))
-; (conf 'q1 '(0 0) 0 '(1 0))
-; (conf 'q1 '(0 0 1) 1 '(0))
-; (conf 'q1 '(0 0 1 0) 0 '())
-; (conf 'q1 '(0 0 1 0 1) 'b '())
-; (conf 'q2 '(0 0 1 0) 1 '())
-; (conf 'q2 '(0 0 1) 0 '(1))
-; (conf 'q2 '(0 0) 1 '(0 1))
-; (conf 'q2 '(0) 0 '(1 0 1))
-; (conf 'q2 '() 0 '(0 1 0 1))
-; (conf 'q2 '() 'b '(0 0 1 0 1))
-; (conf 'q3 '() 0 '(0 1 0 1)))
+(simulate tm1 (conf 'q1 '() 1 '(1 0 1 0)) 20)
+(list
+ (conf 'q1 '() 1 '(1 0 1 0))
+ (conf 'q1 '(0) 1 '(0 1 0))
+ (conf 'q1 '(0 0) 0 '(1 0))
+ (conf 'q1 '(0 0 1) 1 '(0))
+ (conf 'q1 '(0 0 1 0) 0 '())
+ (conf 'q1 '(0 0 1 0 1) 'b '())
+ (conf 'q2 '(0 0 1 0) 1 '())
+ (conf 'q2 '(0 0 1) 0 '(1))
+ (conf 'q2 '(0 0) 1 '(0 1))
+ (conf 'q2 '(0) 0 '(1 0 1))
+ (conf 'q2 '() 0 '(0 1 0 1))
+ (conf 'q2 '() 'b '(0 0 1 0 1))
+ (conf 'q3 '() 0 '(0 1 0 1)))
 
 ; ****************************************************************
 ; ** problem 7 ** (15 points)
@@ -632,33 +632,66 @@ total 0
 
 (define tm-convert
   (list
-   ;; Move to the rightmost bit
-   (ins 'q1 0 'q1 0 'R)   
-   (ins 'q1 1 'q1 1 'R)        
-   (ins 'q1 'b 'q2 'b 'L)   ;; Once you find a blank, move to state q2 and go left
 
-   ;; Check the last bit and generate 'x's or just move to the left
-   (ins 'q2 0 'q3 'b 'L)    ;; If last bit is 0, delete it and move to the left 
-   (ins 'q2 1 'q4 'b 'L)    ;; If last bit is 1, delete it, generate 'x' and move to the left 
+   ; write a turing machine that converts a binary number into the number of x's represented by the decimal equivilent. Solve this problem by binary subtraction on your tape. keep the left side as a binary number. write a machine that subtracts one from a binary number on one side of the c, on the other add an x each time
 
-   ;; Find the leftmost 'x' or bit
-   (ins 'q3 'b 'q5 'x 'R)   ;; If blank is encountered, move to right to find first 'x'
-   (ins 'q3 1 'q3 1 'L)     ;; If 1 is encountered, keep moving left
-   (ins 'q3 0 'q3 0 'L)     ;; If 0 is encountered, keep moving left
-   
-   (ins 'q4 'b 'q5 'x 'R)   ;; If blank is encountered, move to right to find first 'x'
-   (ins 'q4 'x 'q4 'x 'L)     ;; If 'x' is encountered, keep moving left
-   
-   ;; Back to the first bit of the binary number
-   (ins 'q5 0 'q1 0 'R)     ;; If 0 is encountered, go to q1 and start again
-   (ins 'q5 1 'q1 1 'R)     ;; If 1 is encountered, go to q1 and start again
-   (ins 'q5 'x 'q5 'x 'R)     ;; If 'x' is encountered, keep moving right
-   (ins 'q5 'b 'qH 'b 'S))) ;; If blank is encountered, halt
+   ; you can use list on the exam!!!! it is needed!!!!
 
+   ; place z to the right of the binary number
+
+   ; if you see an x, c, 0 keep going left. if you see a 1, convert that to 0. then move to q3. if you get to 'b you go to 'q4 in which you turn them all back to blanks
+
+   ; every time you see a 0 in q3, convet it too one. when you hit b, go back to q2
+
+   ; q1 : place a c to the right of thbinary number
+
+   ; q2 : if you see 1 convert to 0, go to q3. if you see a blank keep it and go thright to q4
+
+   ; q3 : 0 in q3 convert it to a 1, every time you see a c or x keep it, once you see a blank then convert it to x go left to q2
+
+   ; q4 : convert all c and 0 to 'b
+
+   ; 10110
+   ; 10110c
+   ; 10101cx
+   ; 10100cxx
+   ; 10011cxxx
+   ; 11100cxxxx
+   ; 00011cxxxxx
+   ; 00000cxxxxxxxx
+   ; bbbbbbxxxxxxxxx
+
+   ; Conceptually, the idea behind this turing machine is binary subtraction of one as a way to determine the number of x's
+   ; On the left of the slice character, s, binary subtraction of one is performed to the binary number until it goes to zero
+   ; by counting the number of times we subtract by one, we get the number of x's
+
+   ; move to the end of the tape, add a split character s
+   (ins 'q1 0 'q1 0 'R)
+   (ins 'q1 1 'q1 1 'R)
+   (ins 'q1 'b 'q2 's 'L)
+
+   ; move left over all x and s, change 1's to 0's and keep 0's as 0. If you reach the end, jump straight to q4 to perform the final step of cleanup
+   ; if you reach a one, convert that to 0 and move to q3 to add an x to the end of the machine
+   (ins 'q2 'x 'q2 'x 'L)
+   (ins 'q2 's 'q2 's 'L)
+   (ins 'q2 0 'q2 '0 'L)
+   (ins 'q2 1 'q3 0 'R)
+   (ins 'q2 'b 'q4 'b 'R)
+
+   ; chnange 0's to 1's to perform the subtraction step. Move to the end of the tape and add an x to indicate subtraction of one
+   (ins 'q3 0 'q3 1 'R)
+   (ins 'q3 's 'q3 's 'R)
+   (ins 'q3 'x 'q3 'x 'R)
+   (ins 'q3 'b 'q2 'x 'L)
+
+   ; cleanup step, remove the extranous portion of the tape and keep only the x's
+   (ins 'q4 0 'q4 'b 'R)
+   (ins 'q4 's 'q5 'b 'R)
+))
+  
 ; ****************************************************************
 ; ** problem 8 ** (15 points)
 ; Define (in the given representation) a Turing machine named
-
 ; tm-sort
 
 ; that takes as input a non-empty string of 0's and 1's
@@ -721,8 +754,8 @@ total 0
        (ins 'q3 'y 'q3 'y 'R)
        (ins 'q3 'z 'q3 'z 'R)
        (ins 'q3 'x 'q4 'z 'L)
-       (ins 'q3 'b 'q5 'b 'L)
-
+       (ins 'q3 'b 'q5 'b 'L) ; all x's have been found
+       
        ; move back to beginning, but add a 1
        (ins 'q4 'x 'q4 'x 'L)
        (ins 'q4 'y 'q4 'y 'L)
