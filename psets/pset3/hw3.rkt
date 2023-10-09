@@ -703,13 +703,14 @@ total 0
 
 (define tm-sort
   (list
-       ; replace all 0's with x's, move to right of the tape
-       (ins 'q1 0 'q1 'x 'R)
-       (ins 'q1 1 'q1 1 'R)
+       ; replace all 1's with x's, move to right of the tape
+       (ins 'q1 1 'q1 'x 'R)
+       (ins 'q1 0 'q1 'y 'R)
        (ins 'q1 'b 'q2 'b 'L)
 
        ; move back to beginning
        (ins 'q2 'x 'q2 'x 'L)
+       (ins 'q2 'y 'q2 'y 'L)
        (ins 'q2 1 'q2 1 'L)
        (ins 'q2 0 'q2 0 'L)
        (ins 'q2 'b 'q3 'b 'R)
@@ -718,35 +719,73 @@ total 0
        (ins 'q3 1 'q3 1 'R)
        (ins 'q3 0 'q3 0 'R)
        (ins 'q3 'y 'q3 'y 'R)
-       (ins 'q3 'x 'q4 'y 'L)
+       (ins 'q3 'z 'q3 'z 'R)
+       (ins 'q3 'x 'q4 'z 'L)
        (ins 'q3 'b 'q5 'b 'L)
 
-       ; move back to beginning, but add a 0
+       ; move back to beginning, but add a 1
        (ins 'q4 'x 'q4 'x 'L)
        (ins 'q4 'y 'q4 'y 'L)
+       (ins 'q4 'z 'q4 'z 'L)
        (ins 'q4 1 'q4 1 'L)
        (ins 'q4 0 'q4 0 'L)
-       (ins 'q4 'b 'q3 0 'R) ; add 0 to beginning, then find next 'x once again
+       (ins 'q4 'b 'q3 1 'R) ; add 1 to beginning, then find next 'x once again
 
-       ; simply replace all y's with 'b and place head on the first symbol
-       (ins 'q5 'y 'q5 'b 'L)
+       ; place head on the first symbol
+       (ins 'q5 'y 'q5 'y 'L)
+       (ins 'q5 'x 'q5 'x 'L)
+       (ins 'q5 'z 'q5 'z 'L)
        (ins 'q5 1 'q5 1 'L)
        (ins 'q5 0 'q5 0 'L)
        (ins 'q5 'b 'q6 'b 'R)
 
-       ; now we need to account for the 'z elements ('y -> 'z) by moving the 1's in front of them then converting them into 'b
-       ;(ins 'q6 0 'q6 0 'R)
-       ;(ins 'q6 'z 'q6 'z 'R)
-       ;(ins 'q6 'b 'q10 'b 'L) ; no more 1's to deal with, now we should just have the z's left to convert to 'bs
-       ;(ins 'q6 1 'q7 'z 'L) ; replace nearest 1 with a z
+       ; now that we have all the 1's at the beginning, we do the same with 0's
+       ; the exact same process is utilized, except we are looking for y's instead of x's
+       ; find closest 'y, if you hit 'b it means that all y's have been converted into z's, so move to q11
+       (ins 'q6 1 'q6 1 'R)
+       (ins 'q6 0 'q6 0 'R)
+       (ins 'q6 'x 'q6 'x 'R)
+       (ins 'q6 'z 'q6 'z 'R)
+       (ins 'q6 'y 'q7 'z 'L)
+       (ins 'q6 'b 'q8 'b 'L)
+
+       ; move back to beginning, but add a 0
+       (ins 'q7 'x 'q7 'x 'L)
+       (ins 'q7 'y 'q7 'y 'L)
+       (ins 'q7 'z 'q7 'z 'L)
+       (ins 'q7 1 'q7 1 'L)
+       (ins 'q7 0 'q7 0 'L)
+       (ins 'q7 'b 'q6 0 'R) ; add 0 to beginning, then find next 'y once again
+
+       ; place head on the first symbol
+       (ins 'q8 'y 'q8 'y 'L)
+       (ins 'q8 'x 'q8 'x 'L)
+       (ins 'q8 'z 'q8 'z 'L)
+       (ins 'q8 1 'q8 1 'L)
+       (ins 'q8 0 'q8 0 'L)
+       (ins 'q8 'b 'q9 'b 'R)
+
+       ; now we have all the zeros, then all the ones, then a long list of z's indicating each conversion
+       ; simply convert the z's to b's, then move the current symbol to the start of the tape
+       (ins 'q9 'x 'q9 'x 'R)
+       (ins 'q9 'y 'q9 'y 'R)
+       (ins 'q9 'z 'q9 'b 'R)
+       (ins 'q9 1 'q9 1 'R)
+       (ins 'q9 0 'q9 0 'R)
+       (ins 'q9 'b 'q10 'b 'L)
+
+        ; place head on the first 0 or 1
+       (ins 'q10 'y 'q10 'y 'L)
+       (ins 'q10 'x 'q10 'x 'L)
+       (ins 'q10 'z 'q10 'z 'L)
+       (ins 'q10 'b 'q10 'b 'L)
+       (ins 'q10 1 'q11 1 'L)
+       (ins 'q10 0 'q11 0 'L)
        
-       ; now locate the closest 0, and place the 1 in its place and add anoter 0 to the beginning
-       ;(ins 'q7 1 'q7 1 'L)
-       ;(ins 'q7 0 'q8 1 'L) ; replace last 0 with a one
-       
-       ;(ins 'q8 0 'q8 0 'L) ; move back too the beginning
-       ;(ins 'q8 1 'q8 1 'L)
-       ;(ins 'q8 'b 'q6 0 'R) ; added one back to beginning
+       ; move to beginning for test case formatting
+       (ins 'q11 '0 'q11 '0 'L)
+       (ins 'q11 '1 'q11 '1 'L)
+       (ins 'q11 'b 'q12 'b 'R)
   ))
 
 ; ********  testing, testing. 1, 2, 3 ....
