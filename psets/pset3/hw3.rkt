@@ -238,52 +238,51 @@ total 0
 ; ****************************************************************
 (define tm-reverse
   (list
-   ; go to right end of tape
-   (ins 'q1 0 'q1 0 'R)        
-   (ins 'q1 1 'q1 1 'R)        
-   (ins 'q1 'b 'q2 'b 'L)      
+   ; move two the left of the list and place a split point, s
+   (ins 'q1 0 'q2 0 'L)
+   (ins 'q1 1 'q2 1 'L)
+   (ins 'q2 'b 'q3 's 'R)
+  
+   ; check if next item is a 0 or a 1, this will be the last item in the newly reversed tape
+   (ins 'q3 0 'q4 'x 'L) ; set what you iterated over to a placeholder, x
+   (ins 'q3 1 'q5 'x 'L) ; set what you iterated over to a placeholder, x
 
-   ; if the last digit is a zero, place an x. if its a 1, place a y
-   (ins 'q2 0 'q3 0 'L)       
-   (ins 'q2 1 'q4 1 'L)
+   ; if 0, insert 0 at the beginning of the tape
+   (ins 'q4 0 'q4 0 'L)
+   (ins 'q4 1 'q4 1 'L)
+   (ins 'q4 'b 'q6 0 'R) ; add 0 to the beginning of the tape
+   (ins 'q4 's 'q4 's 'L) ; pass over the split point
+   (ins 'q4 'x 'q4 'x 'L) ; pass over placeholders x
 
-   ; add 0 to leftmost end of tape
-   (ins 'q3 0 'q3 0 'L)        
-   (ins 'q3 1 'q3 1 'L)        
-   (ins 'q3 'b 'q6 0 'R)       
 
-   ; add 1 to leftmost end of the tape
-   (ins 'q4 0 'q4 0 'L)        
-   (ins 'q4 1 'q4 1 'L)        
-   (ins 'q4 'b 'q5 1 'R)     
-
-   ; return to the left end and clear x and y, convert back into blanks
-   (ins 'q5 0 'q5 0 'L)        
+   ; if 1 is found, insert 1 at the beginning of the tape
+   (ins 'q5 's 'q5 's 'L) ; pass over the split point
+   (ins 'q5 'x 'q5 'x 'L) ; pass over the placeholders x
+   (ins 'q5 0 'q5 0 'L)
    (ins 'q5 1 'q5 1 'L)
-   (ins 'q5 'b 'q7 'b 'R)
+   (ins 'q5 'b 'q6 1 'R) ; add 1 to the beginning of the tape
+
+   ; move back to the right end of the tape
+   (ins 'q6 's 'q7 's 'R) ; pass over split point
+   (ins 'q7 'x 'q7 'x 'R) ; pass over placeholder x
+   (ins 'q6 0 'q6 0 'R)
+   (ins 'q6 1 'q6 1 'R)
    
-   ; return to the left end and clear x and y, convert back into blanks
-   (ins 'q6 0 'q6 0 'L)        
-   (ins 'q6 1 'q6 1 'L)
-   (ins 'q6 'b 'q7 'b 'R)
+   ; check for non-plaeholder converted 0's and 1's. if they are found, go back to previous steps and add the reversed items to the beginning of the tape
+   (ins 'q7 0 'q4 'x 'L)
+   (ins 'q7 1 'q5 'x 'L)
 
-   ; return to the right end and remove the last digit
-   (ins 'q7 0 'q7 0 'R)        
-   (ins 'q7 1 'q7 1 'R)
+   ; keep moving to the left side
    (ins 'q7 'b 'q8 'b 'L)
-
-   ; These last two functions simply remove the last digit of the reversed binary string
-   ; then go back to the first digit to format it for the conclusion
-
-   (ins 'q8 0 'q9 'b 'L)
-   (ins 'q8 1 'q9 'b 'L)
-
-   ; return back to left side fr
+   (ins 'q8 'x 'q8 'b 'L)
+   (ins 'q8 's 'q9 'b 'L)
    (ins 'q9 0 'q9 0 'L)
    (ins 'q9 1 'q9 1 'L)
-   (ins 'q9 'b 'q10 'b 'R)
-   ))
 
+   ; reached end of tape, no more 0's and 1's to switch to the other side of the tape
+   (ins 'q9 'b 'q10 'b 'R)
+
+   ))
 
 
 ; ****************************************************************
@@ -889,6 +888,19 @@ total 0
 (test 'tm-reverse (simulate-lite tm-reverse (conf 'q1 '() 1 '(1 0)) 200) '(() 0 (1 1)))
 (test 'tm-reverse (simulate-lite tm-reverse (conf 'q1 '() 0 '(0 0 1)) 200) '(() 1 (0 0 0)))
 (test 'tm-reverse (simulate-lite tm-reverse (conf 'q1 '() 1 '(0 1 0 1 1)) 200) '(() 1 (1 0 1 0 1)))
+(test 'tm-reverse (simulate-lite tm-reverse (conf 'q1 '() 1 '(1 0)) 200) '(() 0 (1 1)))
+(test 'tm-reverse (simulate-lite tm-reverse (conf 'q1 '() 1 '(0 0 0 0 0 0)) 2000) '(() 0 (0 0 0 0 0 1)))
+(test 'tm-reverse (simulate-lite tm-reverse (conf 'q1 '() 1 '(0 0 0 1 1)) 2000) '(() 1 (1 0 0 0 1)))
+
+;(test 'tm-reverse (simulate-lite tm-reverse (conf 'q1 '() 1 '(0 1 0 0)) 2000) '(() 0 (0 1 0 1)))
+;(test 'tm-reverse-two (simulate-lite tm-reverse-two (conf 'q1 '() 1 '()) 20) '(() 1 ()))
+;(test 'tm-reverse-two (simulate-lite tm-reverse-two (conf 'q1 '() 1 '(1 0)) 200) '(() 0 (1 1)))
+;(test 'tm-reverse-two (simulate-lite tm-reverse-two (conf 'q1 '() 0 '(0 0 1)) 200) '(() 1 (0 0 0)))
+;(test 'tm-reverse-two (simulate-lite tm-reverse-two (conf 'q1 '() 1 '(0 1 0 1 1)) 200) '(() 1 (1 0 1 0 1)))
+;(test 'tm-reverse-two (simulate-lite tm-reverse-two (conf 'q1 '() 1 '(1 0)) 200) '(() 0 (1 1)))
+;(test 'tm-reverse-two (simulate-lite tm-reverse-two (conf 'q1 '() 1 '(0 0 0 0 0 0)) 2000) '(() 0 (0 0 0 0 0 1)))
+;(test 'tm-reverse-two (simulate-lite tm-reverse-two (conf 'q1 '() 1 '(0 0 1 1)) 2000) '(() 1 (1 0 0 0 1)))
+;(test 'tm-reverse-two (simulate-lite tm-reverse-two (conf 'q1 '() 1 '(0 1 0 0)) 2000) '(() 0 (0 1 0 1)))
 
 (test 'tm-convert (simulate-lite tm-convert (conf 'q1 '() 1 '()) 20) '(() x ()))
 (test 'tm-convert (simulate-lite tm-convert (conf 'q1 '() 1 '(1)) 200) '(() x (x x)))
