@@ -38,7 +38,7 @@
 ; Modify the following definition to reflect the number of hours you
 ; spent on this assignment.
 
-(define hours 4)
+(define hours 8)
 
 ; ********************************************************
 ; ** problem 00 ** (1 fairly easy point)
@@ -254,7 +254,6 @@ total 0
    (ins 'q4 's 'q4 's 'L) ; pass over the split point
    (ins 'q4 'x 'q4 'x 'L) ; pass over placeholders x
 
-
    ; if 1 is found, insert 1 at the beginning of the tape
    (ins 'q5 's 'q5 's 'L) ; pass over the split point
    (ins 'q5 'x 'q5 'x 'L) ; pass over the placeholders x
@@ -263,22 +262,21 @@ total 0
    (ins 'q5 'b 'q6 1 'R) ; add 1 to the beginning of the tape
 
    ; move back to the right end of the tape
-   (ins 'q6 's 'q7 's 'R) ; pass over split point
+   (ins 'q6 's 'q7 's 'R) ; pass over split point, thus look for the next 0/1 to reverse
    (ins 'q7 'x 'q7 'x 'R) ; pass over placeholder x
    (ins 'q6 0 'q6 0 'R)
    (ins 'q6 1 'q6 1 'R)
    
    ; check for non-plaeholder converted 0's and 1's. if they are found, go back to previous steps and add the reversed items to the beginning of the tape
-   (ins 'q7 0 'q4 'x 'L)
-   (ins 'q7 1 'q5 'x 'L)
+   (ins 'q7 0 'q4 'x 'L) ; if 0, return back to q4 to insert 0
+   (ins 'q7 1 'q5 'x 'L) ; if 1, return to q5 to insert 5
 
-   ; keep moving to the left side
+   ; keep moving to the left side until we reach the end of the tape, 'b
    (ins 'q7 'b 'q8 'b 'L)
    (ins 'q8 'x 'q8 'b 'L)
    (ins 'q8 's 'q9 'b 'L)
    (ins 'q9 0 'q9 0 'L)
    (ins 'q9 1 'q9 1 'L)
-
    ; reached end of tape, no more 0's and 1's to switch to the other side of the tape
    (ins 'q9 'b 'q10 'b 'R)
 
@@ -650,16 +648,6 @@ total 0
 
    ; q4 : convert all c and 0 to 'b
 
-   ; 10110
-   ; 10110c
-   ; 10101cx
-   ; 10100cxx
-   ; 10011cxxx
-   ; 11100cxxxx
-   ; 00011cxxxxx
-   ; 00000cxxxxxxxx
-   ; bbbbbbxxxxxxxxx
-
    ; Conceptually, the idea behind this turing machine is binary subtraction of one as a way to determine the number of x's
    ; On the left of the slice character, s, binary subtraction of one is performed to the binary number until it goes to zero
    ; by counting the number of times we subtract by one, we get the number of x's
@@ -667,25 +655,29 @@ total 0
    ; move to the end of the tape, add a split character s
    (ins 'q1 0 'q1 0 'R)
    (ins 'q1 1 'q1 1 'R)
-   (ins 'q1 'b 'q2 's 'L)
+   (ins 'q1 'b 'q2 's 'L) ; split character s for use in splitting the binary numbers and the operation counter
 
    ; move left over all x and s, change 1's to 0's and keep 0's as 0. If you reach the end, jump straight to q4 to perform the final step of cleanup
    ; if you reach a one, convert that to 0 and move to q3 to add an x to the end of the machine
    (ins 'q2 'x 'q2 'x 'L)
    (ins 'q2 's 'q2 's 'L)
    (ins 'q2 0 'q2 '0 'L)
-   (ins 'q2 1 'q3 0 'R)
-   (ins 'q2 'b 'q4 'b 'R)
+   (ins 'q2 1 'q3 0 'R) ; first step in subtraction
+   (ins 'q2 'b 'q4 'b 'R) ; if we hit the end, that means that the list is all zeros, so we have subtracted away all we can, thus we preform cleanup
 
    ; chnange 0's to 1's to perform the subtraction step. Move to the end of the tape and add an x to indicate subtraction of one
-   (ins 'q3 0 'q3 1 'R)
+   (ins 'q3 0 'q3 1 'R) ; second step in subtraction
    (ins 'q3 's 'q3 's 'R)
    (ins 'q3 'x 'q3 'x 'R)
-   (ins 'q3 'b 'q2 'x 'L)
+   (ins 'q3 'b 'q2 'x 'L) ; repeat subtraction since binary number is not yet at 0
 
    ; cleanup step, remove the extranous portion of the tape and keep only the x's
-   (ins 'q4 0 'q4 'b 'R)
-   (ins 'q4 's 'q5 'b 'R)
+   (ins 'q4 0 'q4 'b 'R) ; remove all 0's to the left of the split character
+   (ins 'q4 's 'q5 'b 'R) ; remove split character
+
+   ; return back to the head 
+   (ins 'q5 'x 'q5 'x 'L)
+   (ins 'q5 'b 'q6 'b 'R)
 ))
   
 ; ****************************************************************
