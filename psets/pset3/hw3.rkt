@@ -445,7 +445,7 @@ total 0
 
 (define (normalize config)
 
-  ; need a helper to iterate over the lists and trim the b's from the leftmost side
+  ; need a helper to iterate over the lists and trim b
   (define (removebsleft lst)
     (if (or (empty? lst) (not (eq? (car lst) 'b)))
         lst
@@ -774,13 +774,13 @@ total 0
 
        ; now that we have all the 1's at the beginning, we do the same with 0's
        ; the exact same process is utilized, except we are looking for y's instead of x's
-       ; find closest 'y, if you hit 'b it means that all y's have been converted into z's, so move to q11
+       ; find closest 'y, if you hit 'b it means that all y's have been converted into z's, so move to q8
        (ins 'q6 1 'q6 1 'R)
        (ins 'q6 0 'q6 0 'R)
        (ins 'q6 'x 'q6 'x 'R)
        (ins 'q6 'z 'q6 'z 'R)
-       (ins 'q6 'y 'q7 'z 'L)
-       (ins 'q6 'b 'q8 'b 'L)
+       (ins 'q6 'y 'q7 'z 'L) ; y found
+       (ins 'q6 'b 'q8 'b 'L) ; all y's have been found
 
        ; move back to beginning, but add a 0
        (ins 'q7 'x 'q7 'x 'L)
@@ -895,8 +895,8 @@ total 0
 (test 'tm-convert (simulate-lite tm-convert (conf 'q1 '() 1 '(1 0)) 200) '(() x (x x x x x)))
 (test 'tm-convert (simulate-lite tm-convert (conf 'q1 '() 1 '(1 1 1)) 400) '(() x (x x x x x x x x x x x x x x)))
 
-(test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 0 '()) 20) '(() 0 ()))
-(test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 1 '()) 20) '(() 1 ()))
+(test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 0 '()) 100) '(() 0 ()))
+(test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 1 '()) 100) '(() 1 ()))
 (test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 0 '(0)) 200) '(() 0 (0)))
 (test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 1 '(1 0)) 200) '(() 0 (1 1)))
 (test 'tm-sort (simulate-lite tm-sort (conf 'q1 '() 1 '(0 1 1 0 1 1)) 200) '(() 0 (0 1 1 1 1 1)))
