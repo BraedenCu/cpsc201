@@ -569,21 +569,21 @@ total 0
 ; shows the successive normalized configurations 
 ; of Turing machine tm1 when run from the given configuration.
 
-(simulate tm1 (conf 'q1 '() 1 '(1 0 1 0)) 20)
-(list
- (conf 'q1 '() 1 '(1 0 1 0))
- (conf 'q1 '(0) 1 '(0 1 0))
- (conf 'q1 '(0 0) 0 '(1 0))
- (conf 'q1 '(0 0 1) 1 '(0))
- (conf 'q1 '(0 0 1 0) 0 '())
- (conf 'q1 '(0 0 1 0 1) 'b '())
- (conf 'q2 '(0 0 1 0) 1 '())
- (conf 'q2 '(0 0 1) 0 '(1))
- (conf 'q2 '(0 0) 1 '(0 1))
- (conf 'q2 '(0) 0 '(1 0 1))
- (conf 'q2 '() 0 '(0 1 0 1))
- (conf 'q2 '() 'b '(0 0 1 0 1))
- (conf 'q3 '() 0 '(0 1 0 1)))
+;(simulate tm1 (conf 'q1 '() 1 '(1 0 1 0)) 20)
+;(list
+; (conf 'q1 '() 1 '(1 0 1 0))
+; (conf 'q1 '(0) 1 '(0 1 0))
+; (conf 'q1 '(0 0) 0 '(1 0))
+; (conf 'q1 '(0 0 1) 1 '(0))
+; (conf 'q1 '(0 0 1 0) 0 '())
+; (conf 'q1 '(0 0 1 0 1) 'b '())
+; (conf 'q2 '(0 0 1 0) 1 '())
+; (conf 'q2 '(0 0 1) 0 '(1))
+; (conf 'q2 '(0 0) 1 '(0 1))
+; (conf 'q2 '(0) 0 '(1 0 1))
+; (conf 'q2 '() 0 '(0 1 0 1))
+; (conf 'q2 '() 'b '(0 0 1 0 1))
+; (conf 'q3 '() 0 '(0 1 0 1)))
 
 ; ****************************************************************
 ; ** problem 7 ** (15 points)
