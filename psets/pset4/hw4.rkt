@@ -250,8 +250,21 @@
 ;> 
 ; ****************************************************************
 
+(define (all-vars-helper exp)
+  (cond
+    [(symbol? exp)
+     (list exp)] ; leaf case, variable found 
+    [(bnot? exp)
+     (all-vars-helper (bnot-arg exp))]
+    [(bor? exp)
+     (cons (all-vars-helper (bor-arg1 exp)) (all-vars-helper (bor-arg2 exp)))]
+    [(band? exp)
+     (cons (all-vars-helper (band-arg1 exp)) (all-vars-helper (band-arg2 exp)))]
+    [(or (equal? exp 0) (equal? exp 1)) '()]
+    [else '()])) ; leaf case, end iteration
+
 (define (all-vars exp)
-  (error "all-vars not defined yet"))
+  (remove-duplicates (flatten (cons (all-vars-helper exp) '()))))
 
 ; ****************************************************************
 ; We represent an environment as a table each entry of which
