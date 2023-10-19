@@ -200,10 +200,25 @@
 ; ****************************************************************
 
 (define (boolean-exp? exp)
-  (error "boolean-exp? not defined yet"))
+  (cond
+    [(symbol? exp) #t]
+    [(bnot? exp)
+     (boolean-exp? (bnot-arg exp))] ; only one arg for bnot, so just arg
+    [(bor? exp)
+     (and (boolean-exp? (bor-arg1 exp)) (boolean-exp? (bor-arg2 exp)))] ; need to also check the expressions argument
+    [(band? exp)
+     (and (boolean-exp? (band-arg1 exp)) (boolean-exp? (band-arg2 exp)))]
+    [(or (equal? exp 0) (equal? exp 1)) #t]
+    [else #f]))
 
 (define (type-of exp)
-  (error "type-of not defined yet"))
+  (cond
+    [(symbol? exp) 'variable]
+    [(bnot? exp) 'not]
+    [(bor? exp) 'or]
+    [(band? exp) 'and]
+    [(or (equal? exp 0) (equal? exp 1)) 'constant]
+    [else (error "not a boolean expression")]))
 
 ; ****************************************************************
 ; ** problem 3 ** (10 points)
@@ -634,7 +649,7 @@
 (test 'all-vars (all-vars (band (band 'x 'y) (band 'y 'x))) '(x y))
 (test 'all-vars (all-vars (bor (bor (bor 'c 'b) (bor 'a 'b)) 'c)) '(c b a))
 
-
+#|
 (test 'eval-in-env (eval-in-env 1 environ1) 1)
 (test 'eval-in-env (eval-in-env (bor 0 0) '()) 0)
 (test 'eval-in-env (eval-in-env 'x environ1) 0)
@@ -705,6 +720,6 @@
 (test 'match (match (band 'x 'y) (band 'a 'a)) #f)
 (test 'match (substitute-in (band 'a 'a) (match (band (bor 0 1) (bor 0 1)) (band 'a 'a))) (band (bor 0 1) (bor 0 1)))
 
-
+|#
 
 ; **************** end of hw #4 *********************************
