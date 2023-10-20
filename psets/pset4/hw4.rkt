@@ -109,7 +109,7 @@
     [else (lookup key (cdr table))]))
 
 ; MAKE SURE THAT OPTIONAL ARGSS ARE ALLOWED
-
+ 
 (define (unique-keys? table [keys (map entry-key table)])
   (cond
     [(null? table) #f] ; # f, null table
@@ -483,8 +483,12 @@
 ; the order of variables for the truth table.
 
 ; Examples:
+
+; (define exp0 (bnot 0))
+
 ;> (truth-table exp0)
 ;(tt '() (list (entry '() 1)))
+
 ;> (truth-table exp1)
 ;(tt
 ; '(x y)
@@ -504,8 +508,49 @@
 ;> 
 ; ****************************************************************
 
+#|
+Steps from 18. truth tables video
+
+the way we make a struct in racket is putting the struct name after an opening
+paren (tt ___ ___) -> makes truth table
+
+write a helper function make-entry that takes in a comb, my expression
+and all the variables, and outputs an entry
+
+to do that we need to run eval-in-env as defined above
+
+in make env we have a comb: (0 1 0) an expression (band 'x (bor 'y 'z)), and (x y z)
+
+create another helper that takes a comb and a list of variables and makes an environment,
+simply match up the values in the comb and the variables (can be done recursively)
+|#
+
+(define (make-env comb vars)
+  (if (null? vars)
+      '()
+      (cons (entry (car vars) (car comb)) 
+            (make-env (cdr comb) (cdr vars)))))
+
+(define (make-entry comb exp vars)
+  (if (not (equal? vars '()))
+      (let* ([env (make-env comb vars)]) ; vars is not empty
+        ;(println comb)
+        ;(println exp)
+        ;(println vars)
+        ;(println (eval-in-env exp env))
+        (entry comb (eval-in-env exp env)))
+      
+      (let* ([env (make-env comb '())]) ; vars is empty
+        (entry comb (eval-in-env exp env)))
+      ))
+
 (define (truth-table exp)
-  (error "truth-table not defined yet"))
+  ;(println (all-combs (length (all-vars exp))))
+  (let* ([vars (all-vars exp)]
+         [combs (all-combs (length vars))]
+         [entries (map (lambda (x) (make-entry x exp vars)) combs)]) ; make an entry for each combination
+
+    (tt vars entries))) 
 
 ; ****************************************************************
 ; ** problem 7 ** (10 points)
@@ -734,8 +779,6 @@
 (test 'all-combs (all-combs 2) '((0 0) (0 1) (1 0) (1 1)))
 (test 'all-combs (all-combs 3) '((0 0 0) (0 0 1) (0 1 0) (0 1 1) (1 0 0) (1 0 1) (1 1 0) (1 1 1)))
 
-#|
-
 (test 'truth-table (truth-table exp0) (tt '() (list (entry '() 1))))
 (test 'truth-table (truth-table exp1) 
       (tt '(x y)
@@ -752,6 +795,7 @@
 					(entry '(1 1 0) 1)
 					(entry '(1 1 1) 1))))
 
+#|
 
 
 (test satisfiable?  (satisfiable? 0) #f)
