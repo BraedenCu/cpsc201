@@ -525,22 +525,22 @@ create another helper that takes a comb and a list of variables and makes an env
 simply match up the values in the comb and the variables (can be done recursively)
 |#
 
-(define (make-env comb vars)
+(define (createenv comb vars)
   (if (null? vars)
       '()
       (cons (entry (car vars) (car comb)) 
-            (make-env (cdr comb) (cdr vars)))))
+            (createenv (cdr comb) (cdr vars)))))
 
-(define (make-entry comb exp vars)
+(define (createentry comb exp vars)
   (if (not (equal? vars '()))
-      (let* ([env (make-env comb vars)]) ; vars is not empty
+      (let* ([env (createenv comb vars)]) ; vars is not empty
         ;(println comb)
         ;(println exp)
         ;(println vars)
         ;(println (eval-in-env exp env))
         (entry comb (eval-in-env exp env)))
       
-      (let* ([env (make-env comb '())]) ; vars is empty
+      (let* ([env (createenv comb '())]) ; vars is empty
         (entry comb (eval-in-env exp env)))
       ))
 
@@ -548,7 +548,7 @@ simply match up the values in the comb and the variables (can be done recursivel
   ;(println (all-combs (length (all-vars exp))))
   (let* ([vars (all-vars exp)]
          [combs (all-combs (length vars))]
-         [entries (map (lambda (x) (make-entry x exp vars)) combs)]) ; make an entry for each combination
+         [entries (map (lambda (x) (createentry x exp vars)) combs)]) ; make an entry for each combination
 
     (tt vars entries))) 
 
@@ -600,11 +600,24 @@ simply match up the values in the comb and the variables (can be done recursivel
 ;> 
 ; ****************************************************************
 
-(define (satisfiable? exp)
-  (error "satisfiable? not defined yet"))
+; satisfiable -> simply check the truth table to see if it evaluates to
+; 1 anywhere in the tt. satisfiable tells us if there in any environment which an expression
+; returns 1. 
 
-(define (equivalent? exp1 exp2)
-  (error "equivalent? not defined yet"))
+; equivilent -> for every environment in two expressions, we get the same value
+; in the truth table. note that they don't have to have the exact same truth table to be equivilent
+; So what if I made an expression out of the two expressions passed to equivilent
+; that returns 0 when they output the same value, one otherwise.
+; make an expression out of two boolean expressions (they are recursive so we can do this)
+; that returns 0 when they output the same value and one otherwise
+
+(define (satisfiable? exp)
+  (if (or ((lambda (ent)(if (equal? (entry-value (last ent)) 1) #t #f))(tt-rows (truth-table exp)))) #t #f))
+
+;(define (equivalent? exp1 exp2)
+ ; (let ((combined-exp (bnot (equal? exp1 exp2)))) 
+  ;  (satisfiable? combined-exp))) 
+
 
 ; ****************************************************************
 ; ** problem 8 ** (10 points)
@@ -795,18 +808,19 @@ simply match up the values in the comb and the variables (can be done recursivel
 					(entry '(1 1 0) 1)
 					(entry '(1 1 1) 1))))
 
-#|
-
 
 (test satisfiable?  (satisfiable? 0) #f)
 (test satisfiable? (satisfiable? 1) #t)
 (test satisfiable?  (satisfiable? (band 'x (band 'y 'z))) #t)
 (test satisfiable? (satisfiable? (band 'x (band 'y (bnot 'y)))) #f)
 (test satisfiable?  (satisfiable? (band (bor 'x (bnot 'y)) 0)) #f)
+
+
 (test equivalent?  (equivalent? 0 (band 'a (bnot 'a))) #t)
 (test equivalent?  (equivalent? 0 'a) #f)
 (test equivalent?  (equivalent? (bor 'x (bor 'y 'z)) (bor 0 (bor 'z (bor 'x 'y)))) #t)
 (test equivalent? (equivalent? (bor 'x (band 'y 'z)) (band (bor 'x 'y) (bor 'x 'z))) #t)
+#|
 
 
 (test 'find-exp  (boolean-exp? (find-exp tt-and)) #t)
