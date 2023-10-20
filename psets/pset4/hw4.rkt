@@ -448,8 +448,27 @@
 ;> 
 ; ****************************************************************
 
+(define (power-set lst)
+  ;(trace power-set)
+  (if (empty? lst)
+      (list empty)
+      (append
+       (power-set (cdr lst))
+       (map (lambda (l)
+          (cons (car lst) l)) (power-set (cdr lst)))
+       )
+      )
+  )
+(define (all-combs2 n)
+  (remove-duplicates (power-set (append (make-list n 'y) (make-list n 'x)))))
+
 (define (all-combs n)
-  (error "all-combs not defined yet"))
+  (if (zero? n)
+      '(()) ; base
+      (let* ((prev (all-combs (- n 1))))  ; get all combinations for n-1 until you hit 0 
+        (append (map (lambda (combination) (cons 0 combination)) prev)  ; all 0 combinations, starting with 0 is intentional because it gives us the order we need
+                (map (lambda (combination) (cons 1 combination)) prev)))))  ; all 1 combinations
+
 
 ; ****************************************************************
 ; ** problem 6 ** (10 points)
@@ -709,13 +728,13 @@
 (test 'eval-in-env (eval-in-env exp5 environ1) 0)
 (test 'eval-in-env (eval-in-env (band 'y (bor 'x 'u)) (list (entry 'x 0) (entry 'y 1))) 'unspecified-variable)
 
-#|
 
 (test 'all-combs (all-combs 0) '(()))
 (test 'all-combs (all-combs 1) '((0) (1)))
 (test 'all-combs (all-combs 2) '((0 0) (0 1) (1 0) (1 1)))
 (test 'all-combs (all-combs 3) '((0 0 0) (0 0 1) (0 1 0) (0 1 1) (1 0 0) (1 0 1) (1 1 0) (1 1 1)))
 
+#|
 
 (test 'truth-table (truth-table exp0) (tt '() (list (entry '() 1))))
 (test 'truth-table (truth-table exp1) 
