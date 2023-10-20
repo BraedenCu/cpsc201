@@ -31,7 +31,7 @@
 ; Please modify the following definition to reflect the number of
 ; hours you spent on this assignment.
 
-(define hours 8)
+(define hours 6)
 
 ; ****************************************************************
 ; Unless the problem specifies otherwise:
@@ -320,8 +320,45 @@
 ;>
 ; ****************************************************************
 
+; (define exp5 (band (bor 'x (bnot 'y)) (bnot (band 0 'z))))
+
 (define (eval-in-env exp env)
-  (error "eval-in-env not defined yet"))
+  (cond
+    [(symbol? exp)
+     (let ([var-val (lookup exp env)])
+       (if var-val
+           var-val
+           'unspecified-variable))] ; all we are doing here is matching the symbol to its value in the env
+    [(equal? exp 0) 0] ; constant
+    [(equal? exp 1) 1] ; constant
+    [(band? exp)
+     (let ([arg1-val (eval-in-env (band-arg1 exp) env)] ; deep recursion step on either argument for the operator
+           [arg2-val (eval-in-env (band-arg2 exp) env)])
+       (cond
+         [(and (number? arg1-val) (number? arg2-val))
+          (if (and (= arg1-val 1) (= arg2-val 1)) ; performing and operation
+              1
+              0)]
+         [else 'unspecified-variable]))]
+    [(bor? exp)
+     (let ([arg1-val (eval-in-env (bor-arg1 exp) env)] ; deep recursion step on either argument for the operator
+           [arg2-val (eval-in-env (bor-arg2 exp) env)])
+       (cond
+         [(and (number? arg1-val) (number? arg2-val))
+          (if (or (= arg1-val 1) (= arg2-val 1)) ; performing or operation
+              1
+              0)]
+         [else 'unspecified-variable]))]
+    [(bnot? exp)
+     (let ([arg1-val (eval-in-env (bnot-arg exp) env)]) ; simply swap the digit at the argument of the not operator
+       (if (number? arg1-val)
+           (if (= arg1-val 1)
+               0
+               1)
+           'unspecified-variable))]
+    [else 'unspecified-variable]))
+       
+
 
 ; ****************************************************************
 ; We define a truth table as represented by the following struct
@@ -662,7 +699,6 @@
 (test 'all-vars (all-vars (band (band 'x 'y) (band 'y 'x))) '(x y))
 (test 'all-vars (all-vars (bor (bor (bor 'c 'b) (bor 'a 'b)) 'c)) '(c b a))
 
-#|
 (test 'eval-in-env (eval-in-env 1 environ1) 1)
 (test 'eval-in-env (eval-in-env (bor 0 0) '()) 0)
 (test 'eval-in-env (eval-in-env 'x environ1) 0)
@@ -673,6 +709,7 @@
 (test 'eval-in-env (eval-in-env exp5 environ1) 0)
 (test 'eval-in-env (eval-in-env (band 'y (bor 'x 'u)) (list (entry 'x 0) (entry 'y 1))) 'unspecified-variable)
 
+#|
 
 (test 'all-combs (all-combs 0) '(()))
 (test 'all-combs (all-combs 1) '((0) (1)))
