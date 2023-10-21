@@ -614,10 +614,15 @@ simply match up the values in the comb and the variables (can be done recursivel
 (define (satisfiable? exp)
   (if (or ((lambda (ent)(if (equal? (entry-value (last ent)) 1) #t #f))(tt-rows (truth-table exp)))) #t #f))
 
-;(define (equivalent? exp1 exp2)
- ; (let ((combined-exp (bnot (equal? exp1 exp2)))) 
-  ;  (satisfiable? combined-exp))) 
 
+; REVIEW
+; REVIEW
+; REVIEW BELOW
+
+(define (equivalent? exp1 exp2)
+  (let ((not-equivalent-exp (bor (band exp1 (bnot exp2))
+                                  (band (bnot exp1) exp2))))
+    (not (satisfiable? not-equivalent-exp))))
 
 ; ****************************************************************
 ; ** problem 8 ** (10 points)
