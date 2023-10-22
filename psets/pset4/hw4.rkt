@@ -630,6 +630,7 @@ simply match up the values in the comb and the variables (can be done recursivel
 
 ; (find-exp tt)
 
+
 ; This procedure takes a truth table
 ; and returns a Boolean expression 
 ; for the given truth table.
@@ -638,6 +639,7 @@ simply match up the values in the comb and the variables (can be done recursivel
 ; from lecture, or some other method.
 ; Please include comments explaining your method
 ; in either case.
+
 
 ;Examples
 ;>  (boolean-exp? (find-exp tt-and))
@@ -825,14 +827,15 @@ simply match up the values in the comb and the variables (can be done recursivel
 (test equivalent?  (equivalent? 0 'a) #f)
 (test equivalent?  (equivalent? (bor 'x (bor 'y 'z)) (bor 0 (bor 'z (bor 'x 'y)))) #t)
 (test equivalent? (equivalent? (bor 'x (band 'y 'z)) (band (bor 'x 'y) (bor 'x 'z))) #t)
-#|
-
 
 (test 'find-exp  (boolean-exp? (find-exp tt-and)) #t)
 (test 'find-exp  (equivalent? (find-exp tt-and) (band 'x 'y)) #t)
 (test 'find-exp  (equivalent? (find-exp tt-imp) (bor (bnot 'a) 'b)) #t)
 (test 'find-exp  (equivalent? (find-exp tt-xor) (bor (band 'u (bnot 'v)) (band (bnot 'u) 'v))) #t)
 (test 'find-exp  (boolean-exp? (find-exp tt-f1)) #t)
+
+
+#|
 
 (test 'substitute-in (substitute-in 0 (list (entry 'x 1))) 0)
 (test 'substitute-in (substitute-in 'x (list (entry 'x 1))) 1)
