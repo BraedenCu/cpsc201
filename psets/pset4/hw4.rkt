@@ -771,11 +771,53 @@ simply match up the values in the comb and the variables (can be done recursivel
 ;#f
 ;> (substitute-in (band 'a 'a) (match (band (bor 0 1) (bor 0 1)) (band 'a 'a)))
 ;(band (bor 0 1) (bor 0 1))
-;> 
+;>
+
+; Conditions to consider:
+; 1. constant and constant -> both 1 you can return '().
+; 2. band and band.
+; 3. bor and bor.
+; 4. bnot and bnot.
+; 5. variable and any boolean expression -> whatever this anything is, we can sest the variable to be it in an entryand return that entry in a list.
+; 6. all other cases -> no we cannot match, #f.r
+
 ; ****************************************************************
 
 (define (match exp pat)
-  (error "match not defined yet"))
+  (cond 
+    ;; Case 1: Both expressions are identical constants
+    ((eq? exp pat) (if (or (eq? exp 0) (eq? exp 1)) '() #f))
+
+    ;; Case 5: pat is a variable (not 0 or 1)
+    ((and (symbol? pat) (not (eq? pat 0)) (not (eq? pat 1)))
+     (list (list 'entry pat exp)))  ; Create a substitution entry
+
+    ;; Case 4: Both are bnot
+    ((and (pair? exp) (pair? pat)
+          (eq? (car exp) 'bnot) (eq? (car pat) 'bnot))
+     (match (cadr exp) (cadr pat)))  ; Recursive call on the inner expressions
+
+    ;; Case 2 and 3: Both are band or bor
+    ((and (pair? exp) (pair? pat)
+          (eq? (car exp) (car pat))
+          (or (eq? (car pat) 'band) (eq? (car pat) 'bor)))
+     (let ((m1 (match (cadr exp) (cadr pat)))
+           (m2 (match (caddr exp) (caddr pat))))
+       (if (and m1 m2)  ; If both sides can be matched
+           (append m1 m2)  ; Combine the substitution tables
+           #f)))  ; If one side fails, the whole match fails
+
+    ;; Case 6: All other cases
+    (else #f)))
+
+;; Additional utility function to combine two sub-tables into one
+(define (append-sub-tables st1 st2)
+  (cond ((eq? st1 #f) #f)
+        ((eq? st2 #f) #f)
+        (else (append st1 st2))))
+
+
+
                   
 ; ********************************************************
 ; ********  testing, testing. 1, 2, 3 ....
@@ -890,7 +932,6 @@ simply match up the values in the comb and the variables (can be done recursivel
 (test 'substitute-in (substitute-in (band 'x 'y) (list (entry 'x (bnot 'z)) (entry 'y 0))) (band (bnot 'z) 0))
 (test 'substitute-in (substitute-in (band (bor 'x 'y) (bor (bnot 'x) 'y)) (list (entry 'x (bnot 1)))) (band (bor (bnot 1) 'y) (bor (bnot (bnot 1)) 'y)))
 
-#|
 
 
 (test 'match (match 1 1) '())
@@ -905,6 +946,5 @@ simply match up the values in the comb and the variables (can be done recursivel
 (test 'match (match (band 'x 'y) (band 'a 'a)) #f)
 (test 'match (substitute-in (band 'a 'a) (match (band (bor 0 1) (bor 0 1)) (band 'a 'a))) (band (bor 0 1) (bor 0 1)))
 
-|#
 
 ; **************** end of hw #4 *********************************
