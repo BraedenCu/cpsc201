@@ -668,13 +668,21 @@ simply match up the values in the comb and the variables (can be done recursivel
 ; negates that value if 1 use as is. The OR of all these products together gives a boolean
 ; expression that matches the truth table. (SUM OF PRODUCTS -> OR of AND)
 
-; helper to aid in recursion for performing the and operation to all elements of product
-(define (bandallhelper literals)
-    (if (null? literals)
+; helper to aid in recursion for performing the AND operation to all elements
+(define (bandallhelper var)
+    (if (null? var)
         #t  ; If there are no literals, return 'true.
-        (if (null? (cdr literals))
-            (car literals)  ; If there's only one literal, return it.
-            (band (car literals) (bandallhelper (cdr literals))))))  ; Otherwise, apply AND recursively.
+        (if (null? (cdr var))
+            (car var)  ; If there's only one literal, return it.
+            (band (car var) (bandallhelper (cdr var))))))  ; Otherwise, apply AND recursively.
+
+; helper to aid in recursion for performing the OR operation to all elements after the products are found with "bandallhelper"
+(define (borallhelper var)
+  (if (null? var)
+        #t  ; If there are no literals, return 'true.
+        (if (null? (cdr var))
+            (car var)  ; If there's only one literal, return it.
+            (bor (car var) (borallhelper (cdr var))))))  ; Otherwise, apply OR recursively.
 
 
 ; conversion from simply a row to a product for use in the sum of products method
@@ -687,7 +695,7 @@ simply match up the values in the comb and the variables (can be done recursivel
                            (if (equal? val 1)
                                var  ; if var = 1, at it directly
                                (bnot var))))  ; if var = 0, add its negation
-                       varvalpairs))) ; feed pairs into the lambda to find the variables
+                       (map list vars vals)))) ; feed pairs into the lambda to find the variables
     
     (bandallhelper prod)))  ; apply AND to everything
 
@@ -699,12 +707,11 @@ simply match up the values in the comb and the variables (can be done recursivel
                               (findexphelper row vars)  ; here we produce all of the products by utilizing the findexphelper function which uses the bandallhelper function
                               #f))  ; base case
                         rows)))
-    (let* ((valid-products (filter (lambda (p) (not (equal? p #f))) prod))) ; filtering all non #f products, thus giving us the "valid" products
-      (if (not(null? valid-products))
-          (foldl (lambda (exp1 exp2) (bor exp1 exp2))  ; combine ALL products with OR. foldl used in the place of recursion to make it easier
-                 (car valid-products) 
-                 (cdr valid-products))
+    (let* ((prodvalid (filter (lambda (p) (not (equal? p #f))) prod))) ; filtering all non #f products, thus giving us the "valid" products
+      (if (not(null? prodvalid))
+          (borallhelper prodvalid)  ; combine ALL products with OR
           #f))))  ; if there are no valid products, the expression is always false.
+
 
 ; ****************************************************************
 ; ** problem 9 ** (10 points)
