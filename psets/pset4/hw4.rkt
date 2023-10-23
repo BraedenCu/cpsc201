@@ -655,8 +655,42 @@ simply match up the values in the comb and the variables (can be done recursivel
 ;> 
 ; ****************************************************************
 
+
+; I am using the sum of parts method which is a logical expression consisting of the
+; OR or ANDS of variables
+; this form is derived direction from the truth table. I take every row in the truth table
+; which evaluates to 1 then I create a AND exp that corresponds to all of these input
+; variables for the row which then considers the value of each variable, and if it is 0,
+; negates that value if 1 use as is. The OR of all these products together gives a boolean
+; expression that matches the truth table. (SUM OF PRODUCTS -> OR of AND)
+
 (define (find-exp tt)
-  (error "find-exp not defined yet"))
+  ; helper function to create a product for a single row of the truth table.
+  (define (row-to-product row vars)
+    (let loop ((vars vars) (vals (entry-key row)) (product '()))
+      (if (null? vars)
+          (if (null? product) 'true (foldl band (car product) (cdr product)))  ; Apply AND to all literals in the product.
+          (let ((var (car vars)) (val (car vals)))
+            (loop (cdr vars) 
+                  (cdr vals)
+                  (if (equal? val 1) 
+                      (cons var product)  ; if the variable is 1, add it to the product.
+                      (cons (bnot var) product)))))))  ; if the variable is 0, add its negation to the product.
+
+  ; main function body.
+  (let* ((vars (tt-vars tt))
+         (rows (tt-rows tt))
+         (products (map (lambda (row)
+                          (if (equal? (entry-value row) 1)
+                              (row-to-product row vars)  ; convert each "true" row to a product.
+                              'false))  ; for "false" rows, return 'false.
+                        rows)))
+    (let ((valid-products (filter (lambda (p) (not (equal? p 'false))) products)))
+      (if (null? valid-products)
+          'false  ; if there are no valid products, the expression is always false.
+          (foldl (lambda (exp1 exp2) (bor exp1 exp2))  ; combine products with OR.
+                 (car valid-products) 
+                 (cdr valid-products))))))
 
 ; ****************************************************************
 ; ** problem 9 ** (10 points)
@@ -685,7 +719,22 @@ simply match up the values in the comb and the variables (can be done recursivel
 ; ****************************************************************
 
 (define (substitute-in exp sub-table)
-  (error "substitute-in not defined yet"))
+  (define (substitute-var var)
+    (let ((val (lookup var sub-table)))
+      (if val val var)))  ; If the variable is in the table, substitute it. Otherwise, leave it as is.
+
+  (cond
+    [(symbol? exp) (substitute-var exp)]  ; If it's a variable, attempt to substitute it.
+    [(equal? exp 0) 0]  ; Constant, return as is.
+    [(equal? exp 1) 1]  ; Constant, return as is.
+    [(bnot? exp) (bnot (substitute-in (bnot-arg exp) sub-table))]  ; Recursively substitute in the argument of NOT.
+    [(bor? exp)
+     (bor (substitute-in (bor-arg1 exp) sub-table)  ; Recursively substitute in the arguments of OR.
+          (substitute-in (bor-arg2 exp) sub-table))]
+    [(band? exp)
+     (band (substitute-in (band-arg1 exp) sub-table)  ; Recursively substitute in the arguments of AND.
+           (substitute-in (band-arg2 exp) sub-table))]
+    [else (error "Invalid expression")]))  ; If the expression is of an unknown type, raise an error.
 
 ; ****************************************************************
 ; ** problem 10 ** (10 points)
@@ -835,12 +884,13 @@ simply match up the values in the comb and the variables (can be done recursivel
 (test 'find-exp  (boolean-exp? (find-exp tt-f1)) #t)
 
 
-#|
 
 (test 'substitute-in (substitute-in 0 (list (entry 'x 1))) 0)
 (test 'substitute-in (substitute-in 'x (list (entry 'x 1))) 1)
 (test 'substitute-in (substitute-in (band 'x 'y) (list (entry 'x (bnot 'z)) (entry 'y 0))) (band (bnot 'z) 0))
 (test 'substitute-in (substitute-in (band (bor 'x 'y) (bor (bnot 'x) 'y)) (list (entry 'x (bnot 1)))) (band (bor (bnot 1) 'y) (bor (bnot (bnot 1)) 'y)))
+
+#|
 
 
 (test 'match (match 1 1) '())
