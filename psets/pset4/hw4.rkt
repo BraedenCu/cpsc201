@@ -660,7 +660,6 @@ simply match up the values in the comb and the variables (can be done recursivel
 ;> 
 ; ****************************************************************
 
-
 ; I am using the sum of parts method which is a logical expression consisting of the
 ; OR or ANDS of variables
 ; this form is derived direction from the truth table. I take every row in the truth table
@@ -669,33 +668,43 @@ simply match up the values in the comb and the variables (can be done recursivel
 ; negates that value if 1 use as is. The OR of all these products together gives a boolean
 ; expression that matches the truth table. (SUM OF PRODUCTS -> OR of AND)
 
-(define (find-exp tt)
-  ; helper function to create a product for a single row of the truth table.
-  (define (row-to-product row vars)
-    (let loop ((vars vars) (vals (entry-key row)) (product '()))
-      (if (null? vars)
-          (if (null? product) 'true (foldl band (car product) (cdr product)))  ; Apply AND to all literals in the product.
-          (let ((var (car vars)) (val (car vals)))
-            (loop (cdr vars) 
-                  (cdr vals)
-                  (if (equal? val 1) 
-                      (cons var product)  ; if the variable is 1, add it to the product.
-                      (cons (bnot var) product)))))))  ; if the variable is 0, add its negation to the product.
+; helper to aid in recursion for performing the and operation to all elements of product
+(define (bandallhelper literals)
+    (if (null? literals)
+        #t  ; If there are no literals, return 'true.
+        (if (null? (cdr literals))
+            (car literals)  ; If there's only one literal, return it.
+            (band (car literals) (bandallhelper (cdr literals))))))  ; Otherwise, apply AND recursively.
 
-  ; main function body.
+
+; conversion from simply a row to a product for use in the sum of products method
+(define (findexphelper row vars)
+  (let* ((vals (entry-key row))
+         (varvalpairs (map list vars vals))  ; Combine vars and vals into pairs.
+         (prod (map (lambda (pair)
+                         (let ((var (car pair))
+                               (val (cadr pair)))
+                           (if (equal? val 1)
+                               var  ; if var = 1, at it directly
+                               (bnot var))))  ; if var = 0, add its negation
+                       varvalpairs))) ; feed pairs into the lambda to find the variables
+    
+    (bandallhelper prod)))  ; apply AND to everything
+
+(define (find-exp tt)
   (let* ((vars (tt-vars tt))
          (rows (tt-rows tt))
-         (products (map (lambda (row)
+         (prod (map (lambda (row)
                           (if (equal? (entry-value row) 1)
-                              (row-to-product row vars)  ; convert each "true" row to a product.
-                              'false))  ; for "false" rows, return 'false.
+                              (findexphelper row vars)  ; here we produce all of the products by utilizing the findexphelper function which uses the bandallhelper function
+                              #f))  ; base case
                         rows)))
-    (let ((valid-products (filter (lambda (p) (not (equal? p 'false))) products)))
-      (if (null? valid-products)
-          'false  ; if there are no valid products, the expression is always false.
-          (foldl (lambda (exp1 exp2) (bor exp1 exp2))  ; combine products with OR.
+    (let* ((valid-products (filter (lambda (p) (not (equal? p #f))) prod))) ; filtering all non #f products, thus giving us the "valid" products
+      (if (not(null? valid-products))
+          (foldl (lambda (exp1 exp2) (bor exp1 exp2))  ; combine ALL products with OR. foldl used in the place of recursion to make it easier
                  (car valid-products) 
-                 (cdr valid-products))))))
+                 (cdr valid-products))
+          #f))))  ; if there are no valid products, the expression is always false.
 
 ; ****************************************************************
 ; ** problem 9 ** (10 points)
