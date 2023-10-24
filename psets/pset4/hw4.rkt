@@ -208,16 +208,17 @@
   (cond
     [(symbol? exp) #t]
     [(bnot? exp)
-     (boolean-exp? (bnot-arg exp))] ; only one arg for bnot, so just arg
+     (boolean-exp? (bnot-arg exp))] ; no recursive step because there is only one item to check
     [(bor? exp)
-     (and (boolean-exp? (bor-arg1 exp)) (boolean-exp? (bor-arg2 exp)))] ; need to also check the expressions argument
+     (and (boolean-exp? (bor-arg1 exp)) (boolean-exp? (bor-arg2 exp)))] ; recursive step, checking both sides of the operator
     [(band? exp)
-     (and (boolean-exp? (band-arg1 exp)) (boolean-exp? (band-arg2 exp)))]
+     (and (boolean-exp? (band-arg1 exp)) (boolean-exp? (band-arg2 exp)))] ; recursive step, checking both sides of the operator
     [(or (equal? exp 0) (equal? exp 1)) #t]
-    [else #f]))
+    [else #f])) ; base case catch all
 
 (define (type-of exp)
   (cond
+    ;[(not(boolean-exp? exp)) (error "not a boolean expression")] ; staff solution doesnt check so i will not be for fear of inadequacy
     [(symbol? exp) 'variable]
     [(bnot? exp) 'not]
     [(bor? exp) 'or]
@@ -621,6 +622,8 @@ simply match up the values in the comb and the variables (can be done recursivel
 
 
 (define (equivalent? exp1 exp2)
+  ; (println (bor (band exp1 (bnot exp2))))
+  ; (println (bor (band (bnot exp1) exp2))))
   (let* ((not-equivalent-exp (bor (band exp1 (bnot exp2))
                                   (band (bnot exp1) exp2))))
     (not (satisfiable? not-equivalent-exp))))
@@ -696,7 +699,7 @@ simply match up the values in the comb and the variables (can be done recursivel
     (bandallhelper prod)))  ; apply AND to everything
 
 (define (find-exp tt)
-  (let* ((vars (tt-vars tt))
+  (let* ((vars (tt-vars tt)) ; defining variables necessary for the findexhelper to properly preform its computations
          (rows (tt-rows tt))
          (prod (map (lambda (row)
                           (if (equal? (entry-value row) 1)
@@ -704,7 +707,7 @@ simply match up the values in the comb and the variables (can be done recursivel
                               #f))  ; base case
                         rows)))
     (let* ((prodvalid (filter (lambda (p) (not (equal? p #f))) prod))) ; filtering all non #f products, thus giving us the "valid" products
-      (if (not(null? prodvalid))
+      (if (not(null? prodvalid)) ; if we have some valid products to use use them
           (borallhelper prodvalid)  ; combine ALL products with OR
           #f))))  ; if there are no valid products, the expression is always false.
 
@@ -821,17 +824,17 @@ simply match up the values in the comb and the variables (can be done recursivel
                [st2 (match (band-arg2 exp) (band-arg2 pat))]) ; recursive step on each side
            (if (and st1 st2) ; if they can match
                (remove-duplicates (append st1 st2)) ; remove duplicates append results
-               #f)))]
+               #f)))] ; base case
 
     [else #f])) ; base case
 
 (define (match exp pat)
   (let* [(soln (matchhelper exp pat))]
     (cond
-      [(equal? soln #f) #f]
+      [(equal? soln #f) #f] ; if f 
       [(empty? soln) soln] ; if the soln is empty (this occours during some steps) dont mess with it
       [(unique-keys? soln) soln] ; if all unique keys, we are good !!
-      [else #f])
+      [else #f]) ; base case
   ))
 
                   
