@@ -740,12 +740,11 @@ simply match up the values in the comb and the variables (can be done recursivel
 ; ****************************************************************
 
 (define (substitute-in exp sub-table)
-  (define (substitute-var var)
-    (let ((val (lookup var sub-table)))
-      (if val val var)))  ; If the variable is in the table, substitute it. Otherwise, leave it as is.
-
   (cond
-    [(symbol? exp) (substitute-var exp)]  ; If it's a variable, attempt to substitute it.
+    [(symbol? exp) (let* ([val (lookup exp sub-table)])
+                     (if val
+                         val
+                         exp))]
     [(equal? exp 0) 0]  ; Constant, return as is.
     [(equal? exp 1) 1]  ; Constant, return as is.
     [(bnot? exp) (bnot (substitute-in (bnot-arg exp) sub-table))]  ; Recursively substitute in the argument of NOT.
@@ -755,7 +754,7 @@ simply match up the values in the comb and the variables (can be done recursivel
     [(band? exp)
      (band (substitute-in (band-arg1 exp) sub-table)  ; Recursively substitute in the arguments of AND.
            (substitute-in (band-arg2 exp) sub-table))]
-    [else (error "Invalid expression")]))  ; If the expression is of an unknown type, raise an error.
+    [else (error "Invalid expression")]))  ; raise error
 
 ; ****************************************************************
 ; ** problem 10 ** (10 points)
@@ -805,31 +804,31 @@ simply match up the values in the comb and the variables (can be done recursivel
 
     [(and (symbol? pat) (boolean-exp? exp)) (list (entry pat exp))] ; pat is a var, exp is a boolean exp, so simply create a new entry for the var and exp
 
-    [(and (bnot? exp) (bnot? pat))
-     (match (bnot-arg exp) (bnot-arg pat))] ; both are NOT, match their arguments
+    [(and (bnot? exp) (bnot? pat)) ; both operators are not
+     (match (bnot-arg exp) (bnot-arg pat))] ; both are NOT, so match their arguments
     
-    [(and (bor? exp) (bor? pat))
-     (let ([st1 (match (bor-arg1 exp) (bor-arg1 pat))]
-           [st2 (match (bor-arg2 exp) (bor-arg2 pat))])
-       (if (and st1 st2)
-           (remove-duplicates (append st1 st2))
-           #f))] 
+    [(and (bor? exp) (bor? pat)) ; both operators are OR
+     (let ([st1 (match (bor-arg1 exp) (bor-arg1 pat))] ; recursive step on each side
+           [st2 (match (bor-arg2 exp) (bor-arg2 pat))]) ; recursive step on each side
+       (if (or st1 st2) ; only one side must be true                                                     ; THIS WORKS FOR ALL TEST CASES WETHER ITS AND OR OR, ASK TA
+           (remove-duplicates (append st1 st2)) ; if so, append them but remove any duplicates
+           #f))] ; base case
 
-    [(and (band? exp) (band? pat))
-     (let ([st1 (match (band-arg1 exp) (band-arg1 pat))] 
-           [st2 (match (band-arg2 exp) (band-arg2 pat))])
-       (if (and st1 st2)
+    [(and (band? exp) (band? pat)) ; both operators are AND
+     (let ([st1 (match (band-arg1 exp) (band-arg1 pat))] ; recursive step on each side
+           [st2 (match (band-arg2 exp) (band-arg2 pat))]); recursive step on each side
+       (if (and st1 st2) ; they BOTH must be true
            (remove-duplicates (append st1 st2))
-           #f))] 
+           #f))] ; base case
 
-    [else #f])) ; no match possible
+    [else #f])) ; base case
 
 (define (match exp pat)
   (let* [(soln (match-helper exp pat))]
     (cond
       [(equal? soln #f) #f]
-      [(empty? soln) soln] ; if the soln is empty (this occours during some recursive steps) dont mess with it
-      [(unique-keys? soln) soln]
+      [(empty? soln) soln] ; if the soln is empty (this occours during some steps) dont mess with it
+      [(unique-keys? soln) soln] ; if all unique keys, we are good !!
       [else #f])
   ))
 
@@ -955,7 +954,7 @@ simply match up the values in the comb and the variables (can be done recursivel
 (test 'match (match (band (bor (bnot 'z) 0) (bor (bnot 'z) 'y)) (band (bor 'a 'b) (bor 'a 'c))) (list (entry 'a (bnot 'z)) (entry 'b 0) (entry 'c 'y)))
 (test 'match (match (band (band 'x 'y) 'z) (band (bor 'a 'b) 'c)) #f)
 (test 'match (match (band 'x 'y) (band 'a 'a)) #f)
-;(test 'match (substitute-in (band 'a 'a) (match (band (bor 0 1) (bor 0 1)) (band 'a 'a))) (band (bor 0 1) (bor 0 1)))
+(test 'match (substitute-in (band 'a 'a) (match (band (bor 0 1) (bor 0 1)) (band 'a 'a))) (band (bor 0 1) (bor 0 1)))
 
 
 ; **************** end of hw #4 *********************************
