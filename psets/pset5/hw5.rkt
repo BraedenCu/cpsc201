@@ -268,9 +268,42 @@
       ; If it's none of the above, it's not a valid gate
       [else #f])))
 
-
 (define (good-circuit? value)
-  #f)
+  (if (and 
+       ; Check if it's a valid ckt struct
+       (ckt? value)
+
+       ; Check that inputs and outputs are all symbols
+       (andmap symbol? (ckt-inputs value))
+       (andmap symbol? (ckt-outputs value))
+
+       ; Validate all gates in the circuit
+       (andmap good-gate? (ckt-gates value))
+
+       ; Condition 1: no input of the circuit is the output of a gate
+       (not (ormap (lambda (inp) 
+                     (member inp (map gate-output (ckt-gates value)))) 
+                   (ckt-inputs value)))
+
+       ; Condition 2: every input of a gate is either an input of the circuit or the output of a gate
+       (not (ormap (lambda (gate-input) 
+                     (not (or (member gate-input (ckt-inputs value)) 
+                              (member gate-input (map gate-output (ckt-gates value))))))
+                   (apply append (map gate-inputs (ckt-gates value)))))
+
+       ; Condition 3: no wire is the output of two or more gates
+       (let ((gate-outputs-list (map gate-output (ckt-gates value))))
+         (equal? (length gate-outputs-list) 
+                 (length (remove-duplicates gate-outputs-list))))
+
+       ; Condition 4: every output of the circuit is either an input of the circuit or the output of a gate
+       (not (ormap (lambda (ckt-output) 
+                     (not (or (member ckt-output (ckt-inputs value)) 
+                              (member ckt-output (map gate-output (ckt-gates value))))))
+                   (ckt-outputs value))))
+      #t
+      #f))
+
 
 ;**********************************************************
 ; ** problem 2 ** (10 points)
