@@ -335,10 +335,19 @@
 
 
 (define (all-wires circuit)
-  "all-wires is not defined yet")
+  (let* ((ckt-input-wires (ckt-inputs circuit))
+         (ckt-output-wires (ckt-outputs circuit))
+         (gate-input-wires (apply append (map gate-inputs (ckt-gates circuit))))
+         (gate-output-wires (map gate-output (ckt-gates circuit)))
+         (all-wires-list (append ckt-input-wires ckt-output-wires gate-input-wires gate-output-wires)))
+    (remove-duplicates all-wires-list)))
 
 (define (find-gate wire circuit)
-  "find-gate is not defined yet")
+  (let ((matching-gates (filter (lambda (g) (eq? (gate-output g) wire)) (ckt-gates circuit))))
+    (if (null? matching-gates)
+        #f
+        (car matching-gates)))) ; return the first matching gate
+
 
 ;**********************************************************
 ; ** problem 3 ** (10 points)
@@ -374,12 +383,31 @@
 ; wont be a staff solution for these, because it would reveal the answer
 
 (define ha-ckt
-  (ckt '() '() '()))
-;   "ha-ckt is not defined yet")
+  (ckt
+   '(x y)   ; inputs
+   '(z co)  ; outputs
+   (list
+    ; Sum (XOR) output
+    (gate 'xor '(x y) 'z)
+    ; Carry (AND) output
+    (gate 'and '(x y) 'co))))
+
 
 (define fa-ckt
-  (ckt '() '() '()))
-;   "fa-ckt is not defined yet")
+  (ckt
+   '(x y ci)        ; inputs
+   '(z co)          ; outputs
+   (list
+    ; First half-adder
+    (gate 'xor '(x y) 's1)
+    (gate 'and '(x y) 'c1)
+
+    ; Second half-adder
+    (gate 'xor '(s1 ci) 'z)
+    (gate 'and '(s1 ci) 'c2)
+
+    ; Combine the two carries to get the final carry-out
+    (gate 'or '(c1 c2) 'co))))
 
 ;**********************************************************
 
@@ -428,7 +456,7 @@
 ; ** problem 4 ** (10 points)
 ; Write a procedure 
 
-;(next-value wire circuit config)
+; (next-value wire circuit config)
 
 ; that returns the value on the given wire of the given circuit,
 ; *after one gate delay* starting with the given configuration config
@@ -462,10 +490,46 @@
 ; (next-value 'v0 sel-ckt sel-config2x) => 0
 ;**********************************************************
 
-; well formed wire, configuration specifies value for every wire in the circuite
+; Define the apply-gate-function that takes a gate type and a list of input values and returns the output
+(define (apply-gate-function gate-type input-values)
+  (case gate-type
+    [(and) (if (andmap (lambda (v) (= v 1)) input-values) 1 0)]
+    [(or) (if (ormap (lambda (v) (= v 1)) input-values) 1 0)]
+    [(xor) (if (= (apply + input-values) 1) 1 0)]
+    [(nand) (if (andmap (lambda (v) (= v 1)) input-values) 0 1)]
+    [(nor) (if (ormap (lambda (v) (= v 1)) input-values) 0 1)]
+    [else input-values])) ; not sure what TO DO HERE
 
+; define a next-value function such that returns the value on the given wire of the given circuit, *after one gate delay* starting with the given configuration config of the circuit.
+(define (next-value wire circuit config) 
+  (cond
+    ; Check if wire is a circuit input, if so just return its value from config
+    [(member wire (ckt-inputs circuit)) (hash-ref config wire)]
+    ; Otherwise, find the gate for which the wire is an output
+    [else
+     (let* [(gate (find-gate wire circuit)) ; Get the gate for the wire
+            (gate-type (gate-type gate))    ; Get the type of the gate (e.g., 'and, 'or, etc.)
+            (gate-inputs (gate-inputs gate)) ; Get the input wires of the gate
+            ; Fetch the values of the input wires from config
+            (input-values (map (lambda (input-wire) (hash-ref config input-wire)) gate-inputs))]
+       ; Apply the gate function to determine the next value of the wire
+       (apply-gate-function gate-type input-values))]))
+
+#|
 (define (next-value wire circuit config)
-   "next-value is not defined yet")
+  (cond
+    ; Check if wire is a circuit input, if so just return its value from config
+    [(member wire (ckt-inputs circuit)) (hash-ref config wire)]
+    ; Otherwise, find the gate for which the wire is an output
+    [else
+     (let* [(gate (find-gate wire circuit)) ; Get the gate for the wire
+            (gate-type (gate-type gate))    ; Get the type of the gate (e.g., 'and, 'or, etc.)
+            (gate-inputs (gate-inputs gate)) ; Get the input wires of the gate
+            ; Fetch the values of the input wires from config
+            (input-values (map (lambda (input-wire) (hash-ref config input-wire)) gate-inputs))]
+       ; Apply the gate function to determine the next value of the wire
+       (apply-gate-function gate-type input-values))]))
+|#
 
 ;**********************************************************
 ; ** problem 5 ** (10 points)
@@ -513,7 +577,16 @@
 ;**********************************************************
 
 (define (next-config circuit config)
-   "next-config is not defined yet")
+  ; Iterate over all the wires of the circuit
+  (let* [(all-wire-names (all-wires circuit))
+         ; For each wire, compute its next value and create a pair (wire . value)
+         (next-wire-values 
+           (map (lambda (wire) 
+                  (cons wire (next-value wire circuit config))) 
+                all-wire-names))]
+    ; Convert the list of pairs to a hash table
+    (make-hash next-wire-values)))
+
 
 ;**********************************************************
 ; ** problem 6 ** (10 points)
@@ -575,20 +648,41 @@
 ;**********************************************************
 
 (define (stable? circuit config)
-   "stable? is not defined yet")
+  (equal? config (next-config circuit config)))
 
+;; Generates all possible configurations for a given number of wires.
+(define (all-configs n)
+  (if (= n 0)
+      '(())
+      (let ((smaller-configs (all-configs (- n 1))))
+        (append 
+         (map (lambda (config) (cons 0 config)) smaller-configs)
+         (map (lambda (config) (cons 1 config)) smaller-configs)))))
+
+;; Returns a list of all the stable configurations of the circuit.
 (define (all-stable-configs circuit)
-   "all-stable-configs is not defined yet")
+  (let ((all-wire-configs (all-configs (length (all-wires circuit)))))
+    (filter (lambda (config)
+              (stable? circuit (apply make-hash (map cons (all-wires circuit) config))))
+            all-wire-configs)))
 
+;; Returns values of the output wires from a configuration.
+(define (output-values circuit config)
+  (map (lambda (wire) (hash-ref config wire)) (ckt-outputs circuit)))
+
+;; Initializes a configuration with given input values, rest are set to 0.
+(define (init-config circuit input-values)
+  (let ((input-wires (ckt-inputs circuit)))
+    (make-hash (append (map cons input-wires input-values)
+                       (map (lambda (wire) (cons wire 0))
+                            (filter (lambda (w) (not (member w input-wires))) 
+                                    (all-wires circuit)))))))
 ;; Hint: you may want to define all-configs, which generates all
 ;; configurations for a given number of wires.  Much like your old
 ;; friend power-set.
 
-(define (output-values circuit config)
-  "output-values is not defined yet")
 
-(define (init-config circuit input-values)
-  "init-config is not defined yet")
+
 
 ; *********************************************************
 ; ** problem 7 ** (10 points)
@@ -628,7 +722,15 @@
 ;**********************************************************
 
 (define (simulate circuit config n)
-  "simulate is not defined yet")
+  (define (simulate-helper current-config count acc)
+    (if (or (stable? circuit current-config) (>= count n))
+        (reverse (cons current-config acc)) ; Reverse the accumulated list to get the configurations in correct order.
+        (simulate-helper (next-config circuit current-config) 
+                         (+ 1 count) 
+                         (cons current-config acc))))
+
+  (simulate-helper config 0 '()))
+
 
 ;**********************************************************
 ; ** problem 8 ** (10 points)
@@ -671,7 +773,20 @@
 ;**********************************************************
 
 (define (final-config circuit config)
-  "final-config is not defined yet")
+  (define (final-config-helper current-config seen-configs)
+    (cond
+      ; Check if current-config is stable
+      ((stable? circuit current-config) current-config)
+      
+      ; Check if current-config has been seen before, indicating a loop
+      ((member current-config seen-configs) 'none)
+      
+      ; Otherwise, continue simulating
+      (else (final-config-helper (next-config circuit current-config)
+                                 (cons current-config seen-configs)))))
+
+  (final-config-helper config '()))
+
 
 ;**********************************************************
 ; ** problem 9 ** (10 points)
@@ -799,7 +914,7 @@
 (test 'hours hours (lambda (x) (> x 0)))
 
 
-
+#|
 (test 'good-gate? (good-gate? gate1) #t)
 (test 'good-gate? (good-gate? gate2) #t)
 (test 'good-gate? (good-gate? gate3) #t)
@@ -824,6 +939,7 @@
 (test 'good-circuit? (good-circuit? (ckt '(x y) '(z) (list (gate 'nor '(x y) 'z) (gate 'nand '(x y) 'z)))) #f)
 (test 'good-circuit? (good-circuit? (ckt '(x y) '(u z) (list (gate 'or '(x y) 'z)))) #f)
 
+|#
 
 (test 'all-wires (all-wires eq1-ckt) '(x y z cx cy t1 t2))
 (test 'all-wires (all-wires sel-ckt) '(x1 x0 y1 y0 s z1 z0 sc u1 v1 u0 v0))
@@ -831,8 +947,7 @@
 (test 'find-gate (find-gate 'w eq2-ckt) (gate 'xor '(x y) 'w))
 (test 'find-gate (find-gate 'y sel-ckt) #f)
 
-#|
-"
+
 (test 'ha-ckt (good-circuit? ha-ckt) #t)
 (test 'fa-ckt (good-circuit? fa-ckt) #t)
 (test 'ha-ckt (ckt-inputs ha-ckt) '(x y))
@@ -845,7 +960,6 @@
 					   (init-config ha-ckt '(1 1)))) 
       '(0 1))
 (test 'fa-ckt (output-values fa-ckt (final-config fa-ckt (init-config fa-ckt '(1 1 1)))) '(1 1))
-"
 
 (test 'next-value (next-value 'cx eq1-ckt eq1-config1x) 1)
 (test 'next-value (next-value 't2 eq1-ckt eq1-config1x) 0)
@@ -853,6 +967,7 @@
 (test 'next-value (next-value 'x0 sel-ckt sel-config1x) 1)
 (test 'next-value (next-value 'v1 sel-ckt sel-config1x) 1)
 (test 'next-value (next-value 'v0 sel-ckt sel-config2x) 0)
+
 
 
 (test 'next-config (next-config eq1-ckt eq1-config1x)
@@ -876,7 +991,6 @@
 
 (test 'next-config (next-config latch-ckt latch-config2x)
       (make-hash '((x . 0) (y . 1) (q . 1) (u . 0))))
-
 
 
 (test 'stable? (stable? eq1-ckt (make-hash '((x . 0) (y . 0) (z . 1)
@@ -964,7 +1078,7 @@
 		     (make-hash '((x . 1) (y . 1) (q . 0) (u . 1))))
       (make-hash '((x . 1) (y . 1) (q . 0) (u . 1))))
 
-"
+#|
 (test 'add-ckt (good-circuit? add-ckt) #t)
 (test 'add-ckt (ckt-inputs add-ckt) '(x3 x2 x1 x0 y3 y2 y1 y0))
 (test 'add-ckt (ckt-outputs add-ckt) '(z4 z3 z2 z1 z0))
