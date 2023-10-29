@@ -627,12 +627,9 @@
          (map (lambda (config) (cons 1 config)) smaller-configs)))))
 
 ;; Returns a list of all the stable configurations of the circuit.
-(define (all-stable-configs circuit)
-  (let ((all-wire-configs (all-configs (length (all-wires circuit)))))
-    (filter (lambda (config)
-              (stable? circuit (apply make-hash (map cons (all-wires circuit) config))))
-            all-wire-configs)))
-
+(define (all-stable-configs circuit) 
+  (filter (lambda (config) (stable? circuit config)) (all-configs (length (all-wires circuit)))))
+  
 ;; Returns values of the output wires from a configuration.
 (define (output-values circuit config)
   (map (lambda (wire) (hash-ref config wire)) (ckt-outputs circuit)))
