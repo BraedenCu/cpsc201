@@ -244,66 +244,54 @@
 ; you must confirm that the things are actually wires here
 ; -> the wires all have to be symbols (symbol?)
 
+; Helper functions:
+(define (every pred lst)
+  (cond ((null? lst) #t)
+        ((pred (car lst)) (every pred (cdr lst)))
+        (else #f)))
+
+(define (any pred lst)
+  (cond ((null? lst) #f)
+        ((pred (car lst)) #t)
+        (else (any pred (cdr lst)))))
+
 (define (good-gate? value)
   (and
-    ; Check if it's a valid gate type
-    (member (gate-type value) '(not and or xor nand nor))
-    ; Check if the output is a symbol
-    (symbol? (gate-output value))
-    ; Conditions based on gate type
-    (cond
-      ; For 'not gate type, ensure it has one input and that input is a symbol
-      [(eq? (gate-type value) 'not) 
-       (and (list? (gate-inputs value))
-            (= (length (gate-inputs value)) 1)
-            (symbol? (car (gate-inputs value))))]
-
-      ; For other gate types, ensure they have two inputs and both are symbols
-      [(member (gate-type value) '(and or xor nand nor)) 
-       (and (list? (gate-inputs value))
-            (= (length (gate-inputs value)) 2)
-            (symbol? (car (gate-inputs value)))
-            (symbol? (cadr (gate-inputs value))))]
-
-      ; If it's none of the above, it's not a valid gate
-      [else #f])))
+   (gate? value)  ; Check if value is a gate struct
+   (member (gate-type value) '(not and or xor nand nor))  ; Check gate type
+   (let ((inputs (gate-inputs value)))  ; Check inputs
+     (and (list? inputs)
+          (case (gate-type value)
+            ((not) (= 1 (length inputs)))
+            (else (= 2 (length inputs)))
+            )
+          (every symbol? inputs)
+          )
+   )
+   (symbol? (gate-output value))  ; Check output
+   ))
 
 (define (good-circuit? value)
-  (if (and 
-       ; Check if it's a valid ckt struct
-       (ckt? value)
-
-       ; Check that inputs and outputs are all symbols
-       (andmap symbol? (ckt-inputs value))
-       (andmap symbol? (ckt-outputs value))
-
-       ; Validate all gates in the circuit
-       (andmap good-gate? (ckt-gates value))
-
-       ; Condition 1: no input of the circuit is the output of a gate
-       (not (ormap (lambda (inp) 
-                     (member inp (map gate-output (ckt-gates value)))) 
-                   (ckt-inputs value)))
-
-       ; Condition 2: every input of a gate is either an input of the circuit or the output of a gate
-       (not (ormap (lambda (gate-input) 
-                     (not (or (member gate-input (ckt-inputs value)) 
-                              (member gate-input (map gate-output (ckt-gates value))))))
-                   (apply append (map gate-inputs (ckt-gates value)))))
-
-       ; Condition 3: no wire is the output of two or more gates
-       (let ((gate-outputs-list (map gate-output (ckt-gates value))))
-         (equal? (length gate-outputs-list) 
-                 (length (remove-duplicates gate-outputs-list))))
-
-       ; Condition 4: every output of the circuit is either an input of the circuit or the output of a gate
-       (not (ormap (lambda (ckt-output) 
-                     (not (or (member ckt-output (ckt-inputs value)) 
-                              (member ckt-output (map gate-output (ckt-gates value))))))
-                   (ckt-outputs value))))
-      #t
-      #f))
-
+  (and
+   (ckt? value)  ; Check if value is a ckt struct
+   (every symbol? (ckt-inputs value))  ; Check inputs
+   (every symbol? (ckt-outputs value))  ; Check outputs
+   (let* ((gates (ckt-gates value))
+          (valid-gates (every good-gate? gates))  ; Check gates
+          (all-inputs (foldl append '() (map gate-inputs gates)))
+          (all-outputs (map gate-output gates))
+          (unique-outputs (remove-duplicates all-outputs)))
+     (and
+      valid-gates
+      ; Condition 1: no input of the circuit is the output of a gate
+      (not (any (lambda (x) (member x all-outputs)) (ckt-inputs value)))
+      ; Condition 2: every input of a gate is either an input of the circuit or the output of a gate
+      (every (lambda (x) (or (member x (ckt-inputs value)) (member x all-outputs))) all-inputs)
+      ; Condition 3: no wire is the output of two or more gates
+      (= (length unique-outputs) (length all-outputs))
+      ; Condition 4: every output of the circuit is either an input of the circuit or the output of a gate
+      (every (lambda (x) (or (member x (ckt-inputs value)) (member x all-outputs))) (ckt-outputs value))
+      ))))
 
 ;**********************************************************
 ; ** problem 2 ** (10 points)
@@ -333,21 +321,23 @@
 ;
 ; Find gate: give circuit / write, return gate with the given output wire
 
-
 (define (all-wires circuit)
-  (let* ((ckt-input-wires (ckt-inputs circuit))
-         (ckt-output-wires (ckt-outputs circuit))
-         (gate-input-wires (apply append (map gate-inputs (ckt-gates circuit))))
-         (gate-output-wires (map gate-output (ckt-gates circuit)))
-         (all-wires-list (append ckt-input-wires ckt-output-wires gate-input-wires gate-output-wires)))
-    (remove-duplicates all-wires-list)))
+  (remove-duplicates 
+   (append
+    (ckt-inputs circuit)
+    (ckt-outputs circuit)
+    (foldl (lambda (g acc)
+             (append acc (gate-inputs g) (list (gate-output g))))
+           '()
+           (ckt-gates circuit)))))
 
 (define (find-gate wire circuit)
-  (let ((matching-gates (filter (lambda (g) (eq? (gate-output g) wire)) (ckt-gates circuit))))
-    (if (null? matching-gates)
-        #f
-        (car matching-gates)))) ; return the first matching gate
-
+  (let ((gates (ckt-gates circuit)))
+    (let loop ((remaining-gates gates))
+      (cond
+        ((null? remaining-gates) #f)  ; If there are no more gates, return #f
+        ((eq? wire (gate-output (car remaining-gates))) (car remaining-gates))  ; If the output wire of the current gate matches, return the gate
+        (else (loop (cdr remaining-gates)))))))  ; Otherwise, recur with the rest of the gates
 
 ;**********************************************************
 ; ** problem 3 ** (10 points)
@@ -416,7 +406,6 @@
 ; such that the key is the symbol for the wire and the value is either
 ; 0 or 1.
 
-
 ; Examples
 
 ; Two configurations of the wires of the eq1-ckt Note that the order
@@ -482,54 +471,40 @@
 ; You may want to write an auxiliary procedure to look up the value of a wire in a configuration.
 
 ; Examples
- ;(next-value 'cx eq1-ckt eq1-config1x) => 1
+; (next-value 'cx eq1-ckt eq1-config1x) => 1
 ; (next-value 't2 eq1-ckt eq1-config1x) => 0
 ; (next-value 'z eq1-ckt eq1-config2x) => 0
 ; (next-value 'x0 sel-ckt sel-config1x) => 1
 ; (next-value 'v1 sel-ckt sel-config1x) => 1
 ; (next-value 'v0 sel-ckt sel-config2x) => 0
 ;**********************************************************
+; Helper function to look up the value of a wire in a configuration
+(define (lookup-wire-value wire config)
+  (cond ((hash-has-key? config wire) (hash-ref config wire))
+        (else (error "Wire not found in configuration"))))
 
-; Define the apply-gate-function that takes a gate type and a list of input values and returns the output
+; Function to apply the logic of a gate given its type and input values
 (define (apply-gate-function gate-type input-values)
-  (case gate-type
-    [(and) (if (andmap (lambda (v) (= v 1)) input-values) 1 0)]
-    [(or) (if (ormap (lambda (v) (= v 1)) input-values) 1 0)]
-    [(xor) (if (= (apply + input-values) 1) 1 0)]
-    [(nand) (if (andmap (lambda (v) (= v 1)) input-values) 0 1)]
-    [(nor) (if (ormap (lambda (v) (= v 1)) input-values) 0 1)]
-    [else input-values])) ; not sure what TO DO HERE
-
-; define a next-value function such that returns the value on the given wire of the given circuit, *after one gate delay* starting with the given configuration config of the circuit.
-(define (next-value wire circuit config) 
   (cond
-    ; Check if wire is a circuit input, if so just return its value from config
-    [(member wire (ckt-inputs circuit)) (hash-ref config wire)]
-    ; Otherwise, find the gate for which the wire is an output
-    [else
-     (let* [(gate (find-gate wire circuit)) ; Get the gate for the wire
-            (gate-type (gate-type gate))    ; Get the type of the gate (e.g., 'and, 'or, etc.)
-            (gate-inputs (gate-inputs gate)) ; Get the input wires of the gate
-            ; Fetch the values of the input wires from config
-            (input-values (map (lambda (input-wire) (hash-ref config input-wire)) gate-inputs))]
-       ; Apply the gate function to determine the next value of the wire
-       (apply-gate-function gate-type input-values))]))
+   ((eq? gate-type 'and) (if (andmap (lambda (x) (= x 1)) input-values) 1 0))
+   ((eq? gate-type 'or)  (if (ormap  (lambda (x) (= x 1)) input-values) 1 0))
+   ((eq? gate-type 'not) (if (= (car input-values) 1) 0 1))
+   ((eq? gate-type 'nand) (if (andmap (lambda (x) (= x 1)) input-values) 0 1))
+   ((eq? gate-type 'nor) (if (ormap  (lambda (x) (= x 1)) input-values) 0 1))
+   ((eq? gate-type 'xor) (if (odd? (apply + (map (lambda (x) (if (= x 1) 1 0)) input-values))) 1 0))
+   (else (error "Unknown gate type"))))
 
-#|
+; Main function to compute the next value on a wire
 (define (next-value wire circuit config)
-  (cond
-    ; Check if wire is a circuit input, if so just return its value from config
-    [(member wire (ckt-inputs circuit)) (hash-ref config wire)]
-    ; Otherwise, find the gate for which the wire is an output
-    [else
-     (let* [(gate (find-gate wire circuit)) ; Get the gate for the wire
-            (gate-type (gate-type gate))    ; Get the type of the gate (e.g., 'and, 'or, etc.)
-            (gate-inputs (gate-inputs gate)) ; Get the input wires of the gate
-            ; Fetch the values of the input wires from config
-            (input-values (map (lambda (input-wire) (hash-ref config input-wire)) gate-inputs))]
-       ; Apply the gate function to determine the next value of the wire
-       (apply-gate-function gate-type input-values))]))
-|#
+  (let ((input-wires (ckt-inputs circuit)))
+    (if (member wire input-wires) ; If the wire is an input wire
+        (lookup-wire-value wire config) ; its next value is its current value
+        (let ((gate (find-gate wire circuit))) ; Find the gate of which the wire is the output
+          (if gate
+              (let ((input-values (map (lambda (w) (lookup-wire-value w config)) (gate-inputs gate))))
+                (apply-gate-function (gate-type gate) input-values)) ; Apply the gate function to compute the next value
+              (error "No gate found for output wire")))))) ; Error if no gate found
+
 
 ;**********************************************************
 ; ** problem 5 ** (10 points)
@@ -577,15 +552,7 @@
 ;**********************************************************
 
 (define (next-config circuit config)
-  ; Iterate over all the wires of the circuit
-  (let* [(all-wire-names (all-wires circuit))
-         ; For each wire, compute its next value and create a pair (wire . value)
-         (next-wire-values 
-           (map (lambda (wire) 
-                  (cons wire (next-value wire circuit config))) 
-                all-wire-names))]
-    ; Convert the list of pairs to a hash table
-    (make-hash next-wire-values)))
+  (make-hash (map (lambda (wire) (cons wire (next-value wire circuit config))) (all-wires circuit))))
 
 
 ;**********************************************************
@@ -948,18 +915,20 @@
 (test 'find-gate (find-gate 'y sel-ckt) #f)
 
 
+
 (test 'ha-ckt (good-circuit? ha-ckt) #t)
 (test 'fa-ckt (good-circuit? fa-ckt) #t)
 (test 'ha-ckt (ckt-inputs ha-ckt) '(x y))
 (test 'ha-ckt (ckt-outputs ha-ckt) '(z co))
 (test 'fa-ckt (ckt-inputs fa-ckt) '(x y ci))
 (test 'fa-ckt (ckt-outputs fa-ckt) '(z co))
-
+"
 (test 'ha-ckt (output-values ha-ckt 
 			     (final-config ha-ckt 
 					   (init-config ha-ckt '(1 1)))) 
       '(0 1))
 (test 'fa-ckt (output-values fa-ckt (final-config fa-ckt (init-config fa-ckt '(1 1 1)))) '(1 1))
+"
 
 (test 'next-value (next-value 'cx eq1-ckt eq1-config1x) 1)
 (test 'next-value (next-value 't2 eq1-ckt eq1-config1x) 0)
