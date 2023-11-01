@@ -244,16 +244,15 @@
 ; you must confirm that the things are actually wires here
 ; -> the wires all have to be symbols (symbol?)
 
-; Helper functions:
-(define (every pred lst)
-  (cond ((null? lst) #t)
-        ((pred (car lst)) (every pred (cdr lst)))
-        (else #f)))
+(define (recursiveIteratorHelper pred lst)
+  (cond [(empty? lst) #t]
+        [(pred (car lst)) (recursiveIteratorHelper pred (cdr lst))]
+        [else #f]))
 
 (define (any pred lst)
-  (cond ((null? lst) #f)
-        ((pred (car lst)) #t)
-        (else (any pred (cdr lst)))))
+  (cond [(empty? lst) #f]
+        [(pred (car lst)) #t]
+        [else (any pred (cdr lst))]))
 
 (define (good-gate? value)
   (and
@@ -265,7 +264,7 @@
             ((not) (= 1 (length inputs)))
             (else (= 2 (length inputs)))
             )
-          (every symbol? inputs)
+          (recursiveIteratorHelper symbol? inputs)
           )
    )
    (symbol? (gate-output value))  ; Check output
@@ -274,10 +273,10 @@
 (define (good-circuit? value)
   (and
    (ckt? value)  ; Check if value is a ckt struct
-   (every symbol? (ckt-inputs value))  ; Check inputs
-   (every symbol? (ckt-outputs value))  ; Check outputs
+   (recursiveIteratorHelper symbol? (ckt-inputs value))  ; Check inputs
+   (recursiveIteratorHelper symbol? (ckt-outputs value))  ; Check outputs
    (let* ((gates (ckt-gates value))
-          (valid-gates (every good-gate? gates))  ; Check gates
+          (valid-gates (recursiveIteratorHelper good-gate? gates))  ; Check gates
           (all-inputs (foldl append '() (map gate-inputs gates)))
           (all-outputs (map gate-output gates))
           (unique-outputs (remove-duplicates all-outputs)))
@@ -286,11 +285,11 @@
       ; Condition 1: no input of the circuit is the output of a gate
       (not (any (lambda (x) (member x all-outputs)) (ckt-inputs value)))
       ; Condition 2: every input of a gate is either an input of the circuit or the output of a gate
-      (every (lambda (x) (or (member x (ckt-inputs value)) (member x all-outputs))) all-inputs)
+      (recursiveIteratorHelper (lambda (x) (or (member x (ckt-inputs value)) (member x all-outputs))) all-inputs)
       ; Condition 3: no wire is the output of two or more gates
       (= (length unique-outputs) (length all-outputs))
       ; Condition 4: every output of the circuit is either an input of the circuit or the output of a gate
-      (every (lambda (x) (or (member x (ckt-inputs value)) (member x all-outputs))) (ckt-outputs value))
+      (recursiveIteratorHelper (lambda (x) (or (member x (ckt-inputs value)) (member x all-outputs))) (ckt-outputs value))
       ))))
 
 ;**********************************************************
@@ -492,7 +491,7 @@
    ((eq? gate-type 'nand) (if (andmap (lambda (x) (= x 1)) input-values) 0 1))
    ((eq? gate-type 'nor) (if (ormap  (lambda (x) (= x 1)) input-values) 0 1))
    ((eq? gate-type 'xor) (if (odd? (apply + (map (lambda (x) (if (= x 1) 1 0)) input-values))) 1 0))
-   (else (error "Unknown gate type"))))
+   (else (error "unknown gate"))))
 
 ; Main function to compute the next value on a wire
 (define (next-value wire circuit config)
@@ -503,7 +502,7 @@
           (if gate
               (let ((input-values (map (lambda (w) (lookup-wire-value w config)) (gate-inputs gate))))
                 (apply-gate-function (gate-type gate) input-values)) ; Apply the gate function to compute the next value
-              (error "No gate found for output wire")))))) ; Error if no gate found
+              (error "no gate for output wire")))))) ; Error if no gate found
 
 
 ;**********************************************************
@@ -954,7 +953,19 @@
 ;'((0) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1))
 ;**********************************************************
 
-(define one-one-ckt empty)
+(define one-one-ckt
+  (ckt
+   '() ; no inputs
+   '(t) ; one output
+   (list
+    (gate 'not '(a) 'b) ; flip a to produce b b = 1
+    (gate 'and '(b b) 'c) ; when b is 1, set c to 1
+    (gate 'and '(c c) 'a) ; when c is 1, set a back to 0
+    (gate 'nand '(a b) 'd) ; OR gate to combine a and b
+    (gate 'not '(d) 't) ; NOT gate to produce the output
+    )))
+
+
 
 ; ********************************************************
 ; ********  testing, testing. 1, 2, 3 ....
@@ -1182,12 +1193,12 @@
       '((0) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1)))
 
 
-#| 
-;(test 'one-one-ckt (good-circuit? one-one-ckt)  #t)
-;(test 'one-one-ckt (ckt-inputs one-one-ckt)  '())
-;(test 'one-one-ckt (ckt-outputs one-one-ckt)  '(t))
-;(test 'one-one-ckt (map (lambda (config) (output-values one-one-ckt config)) (simulate one-one-ckt (init-config one-one-ckt '()) 20))
-;      '((0) (0) (1) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0)))
+ 
+(test 'one-one-ckt (good-circuit? one-one-ckt)  #t)
+(test 'one-one-ckt (ckt-inputs one-one-ckt)  '())
+(test 'one-one-ckt (ckt-outputs one-one-ckt)  '(t))
+(test 'one-one-ckt (map (lambda (config) (output-values one-one-ckt config)) (simulate one-one-ckt (init-config one-one-ckt '()) 20))
+      '((0) (0) (1) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0)))
 
-|#
+
 ;**************  end of hw # 5  ************************************
