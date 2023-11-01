@@ -739,7 +739,7 @@
 ;	      (make-hash '((x . 1) (y . 1) (z . 0) (cx . 0)
 ;			   (cy . 0) (t1 . 0) (t2 . 0)))) =>
 ; (make-hash '((x . 1) (y . 1) (z . 1) (cx . 0)
-;    	     (cy . 0) (t1 . 1) (t2 . 0))))
+;    	     (cy . 0) (not . 1) (t2 . 0))))
 
 ; (final-config sel-ckt 
 ;	      (make-hash '((x1 . 0) (x0 . 0) (y1 . 1) (y0 . 0)
@@ -829,7 +829,7 @@
     (gate 'or '(t7 t8) 't10)
     (gate 'or '(t10 t9) 'c2)
 
-    ; Fourth full adder for z3 and z4 (z4 is the final carry out)
+    ; Fourth full adder for z3 and z4, z4 simply the final carry 
     (gate 'xor '(x3 y3) 't11)
     (gate 'xor '(t11 c2) 'z3)
     (gate 'and '(x3 y3) 't12)
@@ -859,7 +859,21 @@
 ;'(1 0)
 ;**********************************************************
 
-(define dff-ckt empty)
+(define dff-ckt
+  (ckt
+   '(s d)
+   '(q qc)
+   (list
+    ; NAND
+    (gate 'and '(s d) 't1)
+    (gate 'not '(t1) 't2)
+    ; NAND
+    (gate 'and '(s t2) 't3)
+    (gate 'not '(t3) 'q)
+    ; NAND
+    (gate 'and '(q d) 't4)
+    (gate 'not '(t4) 'qc)
+    )))
 
 ;**********************************************************
 ; ** problem 11 ** (5 points)
@@ -1113,14 +1127,14 @@
 (test 'add-ckt (output-values add-ckt (final-config add-ckt (init-config add-ckt '(1 0 0 1 1 1 0 1)))) '(1 0 1 1 0))
 (test 'add-ckt (output-values add-ckt (final-config add-ckt (init-config add-ckt '(0 1 1 1 0 1 1 0)))) '(0 1 1 0 1))
 
-#|
-;(test 'dff-ckt (good-circuit? dff-ckt) #t)
-;(test 'dff-ckt (ckt-inputs dff-ckt) '(s d))
-;(test 'dff-ckt (ckt-outputs dff-ckt) '(q qc))
-;(test 'dff-ckt (output-values dff-ckt (final-config dff-ckt (init-config dff-ckt '(1 0)))) '(0 1))
-;(test 'dff-ckt (output-values dff-ckt (final-config dff-ckt (init-config dff-ckt '(1 1)))) '(1 0))
 
- 
+(test 'dff-ckt (good-circuit? dff-ckt) #t)
+(test 'dff-ckt (ckt-inputs dff-ckt) '(s d))
+(test 'dff-ckt (ckt-outputs dff-ckt) '(q qc))
+(test 'dff-ckt (output-values dff-ckt (final-config dff-ckt (init-config dff-ckt '(1 0)))) '(0 1))
+(test 'dff-ckt (output-values dff-ckt (final-config dff-ckt (init-config dff-ckt '(1 1)))) '(1 0))
+
+#| 
 ;(test 'timing-ckt (good-circuit? timing-ckt)  #t)
 ;(test 'timing-ckt (ckt-inputs timing-ckt)  '())
 ;(test 'timing-ckt (ckt-outputs timing-ckt)  '(t))
