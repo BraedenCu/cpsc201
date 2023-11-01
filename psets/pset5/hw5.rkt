@@ -924,15 +924,12 @@
     (gate 'and '(b b) 'c) ; when b becomes a 1, one gate delay later, a will become a 1, turning b back into a 0 t = 1
     (gate 'and '(c c) 'd) ; t = 0 '(c c) 'a
 
-    ; + 1 gate delay
-    (gate 'not '(d) 'd)
+    ; gate delay 3
     (gate 'and '(d d) 'e) ; t = 0
-
-    ; + 1 gate delay
-    (gate 'not '(e) 'e)
+    
+    ; gate delay 4
     (gate 'and '(e e) 'a) ; t = 0
-
-    ; output 1
+    
     (gate 'xor '(b c) 't)
     )))
 
