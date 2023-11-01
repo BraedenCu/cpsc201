@@ -894,7 +894,50 @@
 ;'((0) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1))
 ;**********************************************************
 
-(define timing-ckt empty)
+(define timing-ckt
+    ; initial config: all zero's
+    ; after a few configs, output is 1 for one step, 0 for 4 steps, 1 for one step, then 0 for 4 steps ...
+    ; ('not 'a 'b) -> take a = 0, make b = 1 after one gate delay
+    ; ('and '(b b) 'c) -> when b = 1, one gate delay later a = 1, this change makes b = 0 once again
+    ; the output is 1 for one step, then 0 for 4 steps, and so on
+    ; one step, then 0 for 4 steps, then 1 for one step, and so on
+
+    ; timing ckt
+    ; ('not 'a 'b) -> take a being 0, and make b 1 after one gate delay
+    ; ('and '(b b) 'c) -> when b becomes a 1, one gate delay later a will become a 1 (this will turn back into a 0)
+    ; say ('xor 'b 'c) -> (xor tells us if inputs are different)
+    ; time=0: a=0 b=0 c=0
+    ; time=1: b becomes a 1 nothing else changes t=0
+    ; time=2: c becomes a 1 and nothing else changes t=1
+    ; time=3: a becomes a 1 and nothing else changes t=0
+    ; time=4: b becomes a 0 and nothing else changes t=0
+    ; time=5: c becomes a 0 and nothing else... t=1
+    ; time=6: a becomes a 0 t=0
+    ; a -> b -> c -> a -> b ->c
+    ; the below is function, but we need to elongate the passing progress from 2 zeroes to 4 zeros.
+  (ckt
+   '()
+   '(t) 
+   (list
+    ; this is effectively a 2 gate delay, 00 1 00 1 00 1 00 1 -> need to extend to a four zero delay in between when t = 1. 
+    (gate 'not '(a) 'b) ; take a being 0 and make b 1 after one gate delay, t = 0
+    (gate 'and '(b b) 'c) ; when b becomes a 1, one gate delay later, a will become a 1, turning b back into a 0 t = 1
+    (gate 'and '(c c) 'd) ; t = 0 '(c c) 'a
+
+    ; + 1 gate delay
+    (gate 'not '(d) 'd)
+    (gate 'and '(d d) 'e) ; t = 0
+
+    ; + 1 gate delay
+    (gate 'not '(e) 'e)
+    (gate 'and '(e e) 'a) ; t = 0
+
+    ; output 1
+    (gate 'xor '(b c) 't)
+    )))
+
+
+
 
 ;**********************************************************
 ; ** problem 12 ** (5 points)
@@ -1134,13 +1177,15 @@
 (test 'dff-ckt (output-values dff-ckt (final-config dff-ckt (init-config dff-ckt '(1 0)))) '(0 1))
 (test 'dff-ckt (output-values dff-ckt (final-config dff-ckt (init-config dff-ckt '(1 1)))) '(1 0))
 
-#| 
-;(test 'timing-ckt (good-circuit? timing-ckt)  #t)
-;(test 'timing-ckt (ckt-inputs timing-ckt)  '())
-;(test 'timing-ckt (ckt-outputs timing-ckt)  '(t))
-;(test 'timing-ckt (map (lambda (config) (output-values timing-ckt config)) (simulate timing-ckt (init-config timing-ckt '()) 20))
-;      '((0) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1)))
 
+(test 'timing-ckt (good-circuit? timing-ckt)  #t)
+(test 'timing-ckt (ckt-inputs timing-ckt)  '())
+(test 'timing-ckt (ckt-outputs timing-ckt)  '(t))
+(test 'timing-ckt (map (lambda (config) (output-values timing-ckt config)) (simulate timing-ckt (init-config timing-ckt '()) 20))
+      '((0) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1)))
+
+
+#| 
 ;(test 'one-one-ckt (good-circuit? one-one-ckt)  #t)
 ;(test 'one-one-ckt (ckt-inputs one-one-ckt)  '())
 ;(test 'one-one-ckt (ckt-outputs one-one-ckt)  '(t))
