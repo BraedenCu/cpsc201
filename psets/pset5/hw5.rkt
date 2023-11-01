@@ -594,7 +594,15 @@
 
 ; (stable? eq1-ckt (make-hash '((x . 0) (y . 0) (z . 0)
 ;    (cx . 1) (cy . 0) (t1 . 1) (t2 . 0)))) => #f
-
+; 
+; (define eq2-ckt
+;  (ckt
+;   '(x y)
+;   '(z)
+;   (list
+;    (gate 'xor '(x y) 'w)
+;    (gate 'not '(w) 'z))))
+; 
 ;> (all-stable-configs eq2-ckt)
 ;'(#hash((w . 0) (x . 0) (y . 0) (z . 1))
 ;  #hash((w . 1) (x . 0) (y . 1) (z . 0))
@@ -618,22 +626,24 @@
 (define (stable? circuit config)
   (equal? config (next-config circuit config)))
 
-
-; FUCKED
-;; Generates all possible configurations for a given number of wires.
-(define (all-configs n) 
-  (if (= n 0)
-      (list (make-hash '()))
-      (append (map (lambda (config) (make-hash (cons '(a . 0) config))) (all-configs (- n 1)))
-              (map (lambda (config) (make-hash (cons '(a . 1) config))) (all-configs (- n 1))))))   
-
-
-; FUCKED
-; Procedure to find all stable configurations for a circuit
+; all-configs function to take the list of wire names
+(define (all-configs wires)
+  (if (or (empty? wires)(not (pair? wires)))
+      (list (hash)) ; base case: return a list with an empty hash
+      (let ([currentwire (car wires)])
+        (append
+          (map (lambda (config) (hash-set config currentwire 0)) (all-configs (cdr wires)))
+          (map (lambda (config) (hash-set config currentwire 1)) (all-configs (cdr wires)))))))
+ 
 (define (all-stable-configs circuit)
-  (let ((all-configurations (all-configs (length (all-wires circuit)))))
-    (filter (lambda (config) (stable? circuit config)) all-configurations)))
-
+  (let* ((wires (all-wires circuit))
+        (all-configurations (all-configs wires)))
+    ;(println wires)
+    ;(println all-configurations)
+    ;(println (first all-configurations))
+    ;(println (stable? circuit (first all-configurations)))
+    ;all-configurations))
+    (filter (lambda (cfg) (stable? circuit cfg)) (flatten all-configurations)))) ; Use filter to only return stable configurations
 
 ; working
 
@@ -698,7 +708,7 @@
 (define (simulate circuit config n)
   (define (simulate-helper current-config count acc)
     (if (or (stable? circuit current-config) (>= count n))
-        (reverse (cons current-config acc)) ; Reverse the accumulated list to get the configurations in correct order.
+        (reverse (cons current-config acc)) ; rev the list to get the configs in correct order
         (simulate-helper (next-config circuit current-config) 
                          (+ 1 count) 
                          (cons current-config acc))))
@@ -748,20 +758,16 @@
 
 ;**********************************************************
 
-(define (final-config circuit config)
-  (define (final-config-helper current-config seen-configs)
+(define (final-config-helper current-config seen-configs circuit)
     (cond
-      ; Check if current-config is stable
-      ((stable? circuit current-config) current-config)
-      
-      ; Check if current-config has been seen before, indicating a loop
-      ((member current-config seen-configs) 'none)
-      
-      ; Otherwise, continue simulating
+      ((stable? circuit current-config) current-config)      
+      ((member current-config seen-configs) 'none) ; critical, checks if the config has been seem before
       (else (final-config-helper (next-config circuit current-config)
-                                 (cons current-config seen-configs)))))
+                                 (cons current-config seen-configs)
+                                 circuit))))
 
-  (final-config-helper config '()))
+(define (final-config circuit config)
+  (final-config-helper config '() circuit))
 
 ; working
 
@@ -796,9 +802,44 @@
 ; or you may choose to write procedures to construct your circuit.
 ;**********************************************************
 
-;; By hand
+(define add-ckt
+  (ckt
+   '(x3 x2 x1 x0 y3 y2 y1 y0)
+   '(z4 z3 z2 z1 z0)
+   (list
+    ; First half adder for z0 and c0
+    (gate 'xor '(x0 y0) 'z0)
+    (gate 'and '(x0 y0) 'c0)
 
-(define add-ckt empty)
+    ; Second full adder for z1 and c1
+    (gate 'xor '(x1 y1) 't1)
+    (gate 'xor '(t1 c0) 'z1)
+    (gate 'and '(x1 y1) 't2)
+    (gate 'and '(x1 c0) 't3)
+    (gate 'and '(y1 c0) 't4)
+    (gate 'or '(t2 t3) 't5)
+    (gate 'or '(t5 t4) 'c1)
+
+    ; Third full adder for z2 and c2
+    (gate 'xor '(x2 y2) 't6)
+    (gate 'xor '(t6 c1) 'z2)
+    (gate 'and '(x2 y2) 't7)
+    (gate 'and '(x2 c1) 't8)
+    (gate 'and '(y2 c1) 't9)
+    (gate 'or '(t7 t8) 't10)
+    (gate 'or '(t10 t9) 'c2)
+
+    ; Fourth full adder for z3 and z4 (z4 is the final carry out)
+    (gate 'xor '(x3 y3) 't11)
+    (gate 'xor '(t11 c2) 'z3)
+    (gate 'and '(x3 y3) 't12)
+    (gate 'and '(x3 c2) 't13)
+    (gate 'and '(y3 c2) 't14)
+    (gate 'or '(t12 t13) 't15)
+    (gate 'or '(t15 t14) 'z4)
+    )))
+
+
 
 ;**********************************************************
 ; ** problem 10 ** (5 points)
@@ -976,19 +1017,24 @@
 (test 'stable? (stable? eq1-ckt (make-hash '((x . 0) (y . 0) (z . 0)
 (cx . 1) (cy . 0) (t1 . 1) (t2 . 0)))) #f)
 
+(test 'stable? (stable? eq2-ckt (make-hash '((x . 0) (y . 0) (z . 1) (w . 0)))) #t)
 
-;(test 'all-stable-configs (all-stable-configs eq2-ckt)
-;      (list
-;       (make-hash '((x . 0) (y . 0) (z . 1) (w . 0)))
-;       (make-hash '((x . 0) (y . 1) (z . 0) (w . 1)))
-;       (make-hash '((x . 1) (y . 0) (z . 0) (w . 1)))
-;       (make-hash '((x . 1) (y . 1) (z . 1) (w . 0)))))
+(test 'stable? (stable? eq2-ckt (make-hash '((x . 0) (y . 0) (z . 1) (w . 0)))) #t)
 
-;(test 'all-stable-configs (all-stable-configs seq-or-ckt)
-;      (list
-;       (make-hash '((x . 0) (z . 0)))
-;       (make-hash '((x . 0) (z . 1)))
-;       (make-hash '((x . 1) (z . 1)))))
+;(test 'stable (stable? seq-or-ckt (make-hash '((x. 0) (z. 0)))) #t)
+
+(test 'all-stable-configs (all-stable-configs eq2-ckt)
+      (list
+       (make-hash '((x . 0) (y . 0) (z . 1) (w . 0)))
+       (make-hash '((x . 0) (y . 1) (z . 0) (w . 1)))
+       (make-hash '((x . 1) (y . 0) (z . 0) (w . 1)))
+       (make-hash '((x . 1) (y . 1) (z . 1) (w . 0)))))
+
+(test 'all-stable-configs (all-stable-configs seq-or-ckt)
+      (list
+       (make-hash '((x . 0) (z . 0)))
+       (make-hash '((x . 0) (z . 1)))
+       (make-hash '((x . 1) (z . 1)))))
 
 
 (test 'output-values (output-values eq1-ckt eq1-config2x) '(0))
@@ -998,6 +1044,10 @@
       (make-hash '((x . 1) (y . 0) (z . 0) (cx . 0) (cy . 0) (t1 . 0) (t2 . 0))))
 
 (test 'init-config (init-config clock-ckt '()) (make-hash '((z . 0))))
+
+
+;(println (init-config add-ckt '(1 0 0 1 1 1 0 1)));
+;(println (final-config add-ckt (init-config add-ckt '(1 0 0 1 1 1 0 1))))
 
 (test 'simulate (simulate clock-ckt (make-hash '((z . 0))) 4)
       (list (make-hash '((z . 0)))
@@ -1057,33 +1107,31 @@
 		     (make-hash '((x . 1) (y . 1) (q . 0) (u . 1))))
       (make-hash '((x . 1) (y . 1) (q . 0) (u . 1))))
 
-#|
 (test 'add-ckt (good-circuit? add-ckt) #t)
 (test 'add-ckt (ckt-inputs add-ckt) '(x3 x2 x1 x0 y3 y2 y1 y0))
 (test 'add-ckt (ckt-outputs add-ckt) '(z4 z3 z2 z1 z0))
 (test 'add-ckt (output-values add-ckt (final-config add-ckt (init-config add-ckt '(1 0 0 1 1 1 0 1)))) '(1 0 1 1 0))
 (test 'add-ckt (output-values add-ckt (final-config add-ckt (init-config add-ckt '(0 1 1 1 0 1 1 0)))) '(0 1 1 0 1))
 
-
-(test 'dff-ckt (good-circuit? dff-ckt) #t)
-(test 'dff-ckt (ckt-inputs dff-ckt) '(s d))
-(test 'dff-ckt (ckt-outputs dff-ckt) '(q qc))
-(test 'dff-ckt (output-values dff-ckt (final-config dff-ckt (init-config dff-ckt '(1 0)))) '(0 1))
-(test 'dff-ckt (output-values dff-ckt (final-config dff-ckt (init-config dff-ckt '(1 1)))) '(1 0))
+#|
+;(test 'dff-ckt (good-circuit? dff-ckt) #t)
+;(test 'dff-ckt (ckt-inputs dff-ckt) '(s d))
+;(test 'dff-ckt (ckt-outputs dff-ckt) '(q qc))
+;(test 'dff-ckt (output-values dff-ckt (final-config dff-ckt (init-config dff-ckt '(1 0)))) '(0 1))
+;(test 'dff-ckt (output-values dff-ckt (final-config dff-ckt (init-config dff-ckt '(1 1)))) '(1 0))
 
  
-(test 'timing-ckt (good-circuit? timing-ckt)  #t)
-(test 'timing-ckt (ckt-inputs timing-ckt)  '())
-(test 'timing-ckt (ckt-outputs timing-ckt)  '(t))
-(test 'timing-ckt (map (lambda (config) (output-values timing-ckt config)) (simulate timing-ckt (init-config timing-ckt '()) 20))
-      '((0) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1)))
+;(test 'timing-ckt (good-circuit? timing-ckt)  #t)
+;(test 'timing-ckt (ckt-inputs timing-ckt)  '())
+;(test 'timing-ckt (ckt-outputs timing-ckt)  '(t))
+;(test 'timing-ckt (map (lambda (config) (output-values timing-ckt config)) (simulate timing-ckt (init-config timing-ckt '()) 20))
+;      '((0) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1) (0) (0) (0) (0) (1)))
 
-(test 'one-one-ckt (good-circuit? one-one-ckt)  #t)
-(test 'one-one-ckt (ckt-inputs one-one-ckt)  '())
-(test 'one-one-ckt (ckt-outputs one-one-ckt)  '(t))
-(test 'one-one-ckt (map (lambda (config) (output-values one-one-ckt config)) (simulate one-one-ckt (init-config one-one-ckt '()) 20))
-      '((0) (0) (1) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0)))
+;(test 'one-one-ckt (good-circuit? one-one-ckt)  #t)
+;(test 'one-one-ckt (ckt-inputs one-one-ckt)  '())
+;(test 'one-one-ckt (ckt-outputs one-one-ckt)  '(t))
+;(test 'one-one-ckt (map (lambda (config) (output-values one-one-ckt config)) (simulate one-one-ckt (init-config one-one-ckt '()) 20))
+;      '((0) (0) (1) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0) (0)))
+
 |#
-
-
 ;**************  end of hw # 5  ************************************
