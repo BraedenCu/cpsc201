@@ -244,45 +244,42 @@
 ; you must confirm that the things are actually wires here
 ; -> the wires all have to be symbols (symbol?)
 
-(define (recursiveIteratorHelper pred lst)
-  (cond [(empty? lst) #t]
-        [(pred (car lst)) (recursiveIteratorHelper pred (cdr lst))]
-        [else #f]))
-
 (define (good-gate? value)
   (and
    (gate? value)  ; check if value is a gate struct
    (member (gate-type value) '(not and or xor nand nor))  ; check gate type
-   (let ((inputs (gate-inputs value)))  ; check inputs
-     (and (list? inputs)
+   (let ((in (gate-inputs value)))  ; check inputs
+     (and (list? in)
           (cond
-            [(eq? (gate-type value) 'not) (= 1 (length inputs))]
-            [else (= 2 (length inputs))]
-          )
-          (recursiveIteratorHelper symbol? inputs)
-          )
-   )
+            [(eq? (gate-type value) 'not) (= 1 (length in))] ; length of not will have one input only
+            [else (= 2 (length in))]) ; all others will have two inputs
+          (andmap symbol? in))) ; just make sure all the inputs are symbols
    (symbol? (gate-output value))  ; check output
    ))
 
+; helper function for determining if the inputs and outputs defined below are in fact valid
+(define (validInputsOutputsHelper pred lst)
+  (cond [(empty? lst) #t]
+        [(pred (car lst)) (validInputsOutputsHelper pred (cdr lst))]
+        [else #f]))
 
 (define (good-circuit? value)
   (and
-   (ckt? value)  ; make sure it is a circuit structure
-   (recursiveIteratorHelper symbol? (ckt-inputs value))  ; check that all inputs are symbols
-   (recursiveIteratorHelper symbol? (ckt-outputs value))  ; check that all outputs are symbols
+   (ckt? value)  ; circuit structure confirmation
+   (andmap symbol? (ckt-inputs value))  ; inputs symbols
+   (andmap symbol? (ckt-outputs value))  ; outputs symbols
    (let* ((gates (ckt-gates value))
-          (valid-gates (recursiveIteratorHelper good-gate? gates))  ; Check gates
-          (all-inputs (foldl append '() (map gate-inputs gates)))
-          (all-outputs (map gate-output gates))
-          (unique-outputs (remove-duplicates all-outputs)))
-     (and
-      valid-gates
-      (not (ormap (lambda (x) (member x all-outputs)) (ckt-inputs value))) ; no input of the circuit is the output of a gate
-      (recursiveIteratorHelper (lambda (x) (or (member x (ckt-inputs value)) (member x all-outputs))) all-inputs) ; every input of a gate is either an input of the circuit or the output of a gate
-      (= (length unique-outputs) (length all-outputs)) ; no wire is the output of two or more gates
-      (recursiveIteratorHelper (lambda (x) (or (member x (ckt-inputs value)) (member x all-outputs))) (ckt-outputs value)) ; every output of the circuit is either an input of the circuit or the output of a gat
-      ))))
+          (goodgates (andmap good-gate? gates))  ; make sure all gates are looking nice
+          (inputs (append* (map gate-inputs gates))) ; append all inputs together
+          (outputs (map gate-output gates)) ; append all outputs together
+          (differentoutputs (remove-duplicates outputs))) ; remove duplicates to get all unique outputs
+     (if (and goodgates ; gates all gotta be good :)
+            (not (ormap (lambda (x) (member x outputs)) (ckt-inputs value))) ; no input of the circuit is the output of a gate
+            (andmap (lambda (x) (or (member x (ckt-inputs value)) (member x outputs))) inputs) ; either input of circuit or output of gate for everything
+            (= (length differentoutputs) (length outputs)) ; no wire can be output of greater than or equal to two gates
+            (andmap (lambda (x) (or (member x (ckt-inputs value)) (member x outputs))) (ckt-outputs value))) ; either output of circuit or input of circuit for everything
+         #t 
+         #f))))
 
 ;**********************************************************
 ; ** problem 2 ** (10 points)
@@ -313,23 +310,15 @@
 ; Find gate: give circuit / write, return gate with the given output wire
 
 (define (all-wires circuit)
-  (remove-duplicates 
-   (append
-    (ckt-inputs circuit)
-    (ckt-outputs circuit)
-    (apply append
-           (map (lambda (g)
-                  (append (gate-inputs g) (list (gate-output g))))
-                (ckt-gates circuit))))))
-
+  (remove-duplicates (append (ckt-inputs circuit) (ckt-outputs circuit) (append* (map (lambda (x) (append (gate-inputs x) (list (gate-output x)))) (ckt-gates circuit))))))
 
 (define (find-gate wire circuit)
   (let ((gates (ckt-gates circuit)))
-    (let loop ((remaining-gates gates))
-      (cond
-        ((null? remaining-gates) #f)  ; If there are no more gates, return #f
-        ((eq? wire (gate-output (car remaining-gates))) (car remaining-gates))  ; If the output wire of the current gate matches, return the gate
-        (else (loop (cdr remaining-gates)))))))  ; Otherwise, recur with the rest of the gates
+    (let ((matching-gates (filter (lambda (gate) (eq? wire (gate-output gate))) gates))) ; gates that match the output wire given in the circuit 
+      (if (null? matching-gates) 
+          #f  ; no matching gates were found
+          (car matching-gates)  ; gate found
+      ))))
 
 ;**********************************************************
 ; ** problem 3 ** (10 points)
@@ -366,30 +355,26 @@
 
 (define ha-ckt
   (ckt
-   '(x y)   ; inputs
-   '(z co)  ; outputs
+   '(x y)
+   '(z co) 
    (list
-    ; Sum (XOR) output
     (gate 'xor '(x y) 'z)
-    ; Carry (AND) output
     (gate 'and '(x y) 'co))))
 
 
 (define fa-ckt
   (ckt
-   '(x y ci)        ; inputs
-   '(z co)          ; outputs
+   '(x y ci)       
+   '(z co)   
    (list
-    ; First half-adder
-    (gate 'xor '(x y) 's1)
-    (gate 'and '(x y) 'c1)
-
-    ; Second half-adder
-    (gate 'xor '(s1 ci) 'z)
-    (gate 'and '(s1 ci) 'c2)
-
-    ; Combine the two carries to get the final carry-out
-    (gate 'or '(c1 c2) 'co))))
+   ; half adder
+    (gate 'xor '(x y) 'x1)
+    (gate 'and '(x y) 'x2)
+    ; full adder
+    (gate 'xor '(x1 ci) 'z)
+    (gate 'and '(x1 ci) 'x3)
+    ; final
+    (gate 'or '(x2 x3) 'co))))
 
 ;**********************************************************
 
@@ -471,31 +456,28 @@
 ; (next-value 'v0 sel-ckt sel-config2x) => 0
 ;**********************************************************
 ; Helper function to look up the value of a wire in a configuration
-(define (lookup-wire-value wire config)
+(define (lookupwirevalue wire config)
   (cond ((hash-has-key? config wire) (hash-ref config wire))
-        (else (error "Wire not found in configuration"))))
+        (else (error "no wire in config"))))
 
-; Function to apply the logic of a gate given its type and input values
-(define (apply-gate-function gate-type input-values)
+; logic of each gate type is used here to apply the gate function
+(define (apply-gate-function type in)
   (cond
-   ((eq? gate-type 'and) (if (andmap (lambda (x) (= x 1)) input-values) 1 0))
-   ((eq? gate-type 'or)  (if (ormap  (lambda (x) (= x 1)) input-values) 1 0))
-   ((eq? gate-type 'not) (if (= (car input-values) 1) 0 1))
-   ((eq? gate-type 'nand) (if (andmap (lambda (x) (= x 1)) input-values) 0 1))
-   ((eq? gate-type 'nor) (if (ormap  (lambda (x) (= x 1)) input-values) 0 1))
-   ((eq? gate-type 'xor) (if (odd? (apply + (map (lambda (x) (if (= x 1) 1 0)) input-values))) 1 0))
-   (else (error "unknown gate"))))
+   ((eq? type 'not) (if (= (car in) 1) 0 1)) ; not 1 > 0, 0 > 1
+   ((eq? type 'nand) (if (andmap (lambda (x) (= x 1)) in) 0 1)) ; 0 0 > 1, 0 1 > 1, 1 0 > 1, 1 1 > 0
+   ((eq? type 'nor) (if (ormap  (lambda (x) (= x 1)) in) 0 1)) ; 0 0 > 1, 0 1 > 0, 1 0 > 0, 1 1 > 0
+   ((eq? type 'xor) (if (odd? (apply + (map (lambda (x) (if (= x 1) 1 0)) in))) 1 0)) ; 0 0 > 0, 0 1 > 1, 1 0 > 1, 1 1 > 0
+   ((eq? type 'and) (if (andmap (lambda (x) (= x 1)) in) 1 0)) ; 0 0 > 0, 1 0 > 0, 0 1 > 0, 1 1 > 1
+   ((eq? type 'or)  (if (ormap  (lambda (x) (= x 1)) in) 1 0)) ; 0 0 > 0, 1 0 > 1, 0 1 > 1, 1 1 > 1
+   (else (error "gate type not recognized"))))
 
-; Main function to compute the next value on a wire
+; next value 
 (define (next-value wire circuit config)
-  (let ((input-wires (ckt-inputs circuit)))
-    (if (member wire input-wires) ; If the wire is an input wire
-        (lookup-wire-value wire config) ; its next value is its current value
-        (let ((gate (find-gate wire circuit))) ; Find the gate of which the wire is the output
-          (if gate
-              (let ((input-values (map (lambda (w) (lookup-wire-value w config)) (gate-inputs gate))))
-                (apply-gate-function (gate-type gate) input-values)) ; Apply the gate function to compute the next value
-              (error "no gate for output wire")))))) ; Error if no gate found
+  (if (member wire (ckt-inputs circuit)) ; check if we're dealing with an input wire
+      (lookupwirevalue wire config) ; find next value (just lookup curr val)
+      (if (find-gate wire circuit) ; check if a gate exists for the wire
+          (apply-gate-function (gate-type (find-gate wire circuit)) (map (lambda (w) (lookupwirevalue w config))  (gate-inputs (find-gate wire circuit)))) ; apply the gate function to compute the next value
+          (error "no gate output")))) ; no gate found :(
 
 
 ;**********************************************************
@@ -544,7 +526,7 @@
 ;**********************************************************
 
 (define (next-config circuit config)
-  (make-hash (map (lambda (wire) (cons wire (next-value wire circuit config))) (all-wires circuit))))
+  (make-hash (map (lambda (currentwire) (cons currentwire (next-value currentwire circuit config))) (all-wires circuit))))
 
 
 ;**********************************************************
@@ -614,136 +596,44 @@
 
 ;**********************************************************
 
-;(define (all-configs wires)
-;  (if (or (empty? wires)(not (pair? wires)))
-;      (list (hash)) ; base case: return a list with an empty hash
-;      (let ([currentwire (car wires)])
-;        (append
-;          (map (lambda (config) (hash-set config currentwire 0)) (all-configs (cdr wires)))
-;          (map (lambda (config) (hash-set config currentwire 1)) (all-configs (cdr wires)))))))
-
-;(define (all-configs wires circuit configs)
-;  [cond
-;    [(empty? wires) (list make-hash)]
-;    [else (append (map (lambda (x) (hash-set! x [car wires] 0) (hash-copy x)) (all-configs (cdr configs)))
-;                  (map (lambda (x) (hash-set! x [car wires] 1) (hash-copy x)) (all-configs (cdr configs))))]])
-
-;(define (all-configs wires)
-;  (if (or (empty? wires)(not (pair? wires)))
-;      (list (hash)) ; base case: return a list with an empty hash
-;      (let ([currentwire (car wires)])
-;        (append
-;          (map (lambda (config) (hash-set config currentwire 0)) (all-configs (cdr wires)))
-;          (map (lambda (config) (hash-set config currentwire 1)) (all-configs (cdr wires)))))))
-  
-
-;(define (all-stable-helper circuit configs)
-;  (cond
-;    [(= (length configs) 0) '()]
-;    [(stable? circuit (car configs)) (append (list (car configs)) (all-stable-helper circuit (cdr configs)))]
-;    [else (all-stable-helper circuit (cdr configs))]))
-
-;(define (all-stable-configs circuit)
-;  (all-stable-helper circuit (all-configs (all-wires circuit configs))))
-
-
-; all-configs function to take the list of wire names
-;(define (all-configs wires)
-;  (if (or (empty? wires)(not (pair? wires)))
-;      (list (hash)) ; base case: return a list with an empty hash
-;      (let ([currentwire (car wires)])
-;        (append
-;          (map (lambda (config) (hash-set config currentwire 0)) (all-configs (cdr wires)))
-;          (map (lambda (config) (hash-set config currentwire 1)) (all-configs (cdr wires)))))))
-
-
-;(define (all-stable-configs circuit)
-;  (let* ((wires (all-wires circuit))
-;        (all-configurations (all-configs wires)))
-    ;(println wires)
-    ;(println all-configurations)
-    ;(println (first all-configurations))
-    ;(println (stable? circuit (first all-configurations)))
-    ;all-configurations))
-;    (filter (lambda (cfg) (stable? circuit cfg)) (flatten all-configurations)))) ; Use filter to only return stable configurations
-
-
-; working (BELOW)
-
 (define (stable? circuit config)
-  (equal? config (next-config circuit config)))
-
-; working (ABOVE)
+  (equal? config (next-config circuit config))) ; checking for equality
 
 
 ; all-configs function to take the list of wire names
-(define (all-configs2 wires)
-  (if (or (empty? wires)(not (pair? wires)))
-      (list (hash)) ; base case: return a list with an empty hash
-      (let ([currentwire (car wires)])
-        (append
-          (map (lambda (config) (hash-set config currentwire 0)) (all-configs (cdr wires)))
-          (map (lambda (config) (hash-set config currentwire 1)) (all-configs (cdr wires)))))))
-
-;(define (all-configs wires circuit configs)
-;  [cond
-;    [(empty? wires) (list make-hash)]
-;    [else (append (map (lambda (x) (hash-set! x [car wires] 0) (hash-copy x)) (all-configs (cdr configs)))
-;                  (map (lambda (x) (hash-set! x [car wires] 1) (hash-copy x)) (all-configs (cdr configs))))]])
- 
-(define (all-stable-configs2 circuit)
-  (let* ((wires (all-wires circuit))
-        (all-configurations (all-configs wires)))
-    ;(println wires)
-    ;(println all-configurations)
-    ;(println (first all-configurations))
-    ;(println (stable? circuit (first all-configurations)))
-    ;all-configurations))
-    (filter (lambda (cfg) (stable? circuit cfg)) all-configurations)))
-    ;(filter (lambda (cfg) (not(stable? circuit cfg))) (flatten all-configurations)))) ; Use filter to only return stable configurations
-
-
-(define (all-stable-configs circuit)
-  (all-stable-helper circuit (all-configs (all-wires circuit))))
-
-(define (all-stable-helper circuit configs)
-  (cond
-    [(= (length configs) 0) '()]
-    [(stable? circuit (car configs)) (append (list (car configs)) (all-stable-helper circuit (cdr configs)))]
-    [else (all-stable-helper circuit (cdr configs))]))
-
 (define (all-configs wires)
   (cond
-    [(empty? wires) (list (make-hash))]
+    [(empty? wires) (list (make-hash))] ; create the hash table if empty
     [else (append (map (lambda (x) (hash-set! x (car wires) 0) (hash-copy x)) (all-configs (cdr wires)))
                   (map (lambda (x) (hash-set! x (car wires) 1) (hash-copy x)) (all-configs (cdr wires))))]))
 
-
-
-
-
-
-
-
-
-
+(define (all-stable-configs circuit)
+  (let* ((wires (all-wires circuit))
+        (allconfigs (all-configs wires)))
+    ;(println wires)
+    ;(println all-configurations)
+    ;(println (first all-configurations))
+    ;(println (stable? circuit (first all-configurations)))
+    ;all-configurations))
+    (filter (lambda (x) (stable? circuit x)) allconfigs)
+  ))
 
 ; working
 
-;; Returns values of the output wires from a configuration.
 (define (output-values circuit config)
-  (map (lambda (wire) (hash-ref config wire)) (ckt-outputs circuit)))
+  (map (lambda (wire) (hash-ref config wire)) (ckt-outputs circuit))) ; gets output wires
 
 
 ; working
 
-;; Initializes a configuration with given input values, rest are set to 0.
 (define (init-config circuit input-values)
-  (let ((input-wires (ckt-inputs circuit)))
-    (make-hash (append (map cons input-wires input-values)
+  (let* ((input-wires (ckt-inputs circuit)))
+    (make-hash (append (map cons input-wires input-values) ; create list of all input wires and input values
                        (map (lambda (wire) (cons wire 0))
                             (filter (lambda (w) (not (member w input-wires))) 
                                     (all-wires circuit)))))))
+
+
 ;; Hint: you may want to define all-configs, which generates all
 ;; configurations for a given number of wires.  Much like your old
 ;; friend power-set.
