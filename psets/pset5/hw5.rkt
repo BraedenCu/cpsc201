@@ -249,26 +249,22 @@
         [(pred (car lst)) (recursiveIteratorHelper pred (cdr lst))]
         [else #f]))
 
-(define (any pred lst)
-  (cond [(empty? lst) #f]
-        [(pred (car lst)) #t]
-        [else (any pred (cdr lst))]))
-
 (define (good-gate? value)
   (and
    (gate? value)  ; check if value is a gate struct
    (member (gate-type value) '(not and or xor nand nor))  ; check gate type
    (let ((inputs (gate-inputs value)))  ; check inputs
      (and (list? inputs)
-          (case (gate-type value)
-            ((not) (= 1 (length inputs)))
-            (else (= 2 (length inputs)))
-            )
+          (cond
+            [(eq? (gate-type value) 'not) (= 1 (length inputs))]
+            [else (= 2 (length inputs))]
+          )
           (recursiveIteratorHelper symbol? inputs)
           )
    )
    (symbol? (gate-output value))  ; check output
    ))
+
 
 (define (good-circuit? value)
   (and
@@ -282,7 +278,7 @@
           (unique-outputs (remove-duplicates all-outputs)))
      (and
       valid-gates
-      (not (any (lambda (x) (member x all-outputs)) (ckt-inputs value))) ; no input of the circuit is the output of a gate
+      (not (ormap (lambda (x) (member x all-outputs)) (ckt-inputs value))) ; no input of the circuit is the output of a gate
       (recursiveIteratorHelper (lambda (x) (or (member x (ckt-inputs value)) (member x all-outputs))) all-inputs) ; every input of a gate is either an input of the circuit or the output of a gate
       (= (length unique-outputs) (length all-outputs)) ; no wire is the output of two or more gates
       (recursiveIteratorHelper (lambda (x) (or (member x (ckt-inputs value)) (member x all-outputs))) (ckt-outputs value)) ; every output of the circuit is either an input of the circuit or the output of a gat
