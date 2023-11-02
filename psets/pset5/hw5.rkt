@@ -672,22 +672,30 @@
 ;    (filter (lambda (cfg) (stable? circuit cfg)) (flatten all-configurations)))) ; Use filter to only return stable configurations
 
 
-; working
+; working (BELOW)
 
 (define (stable? circuit config)
   (equal? config (next-config circuit config)))
 
+; working (ABOVE)
+
 
 ; all-configs function to take the list of wire names
-(define (all-configs wires)
+(define (all-configs2 wires)
   (if (or (empty? wires)(not (pair? wires)))
       (list (hash)) ; base case: return a list with an empty hash
       (let ([currentwire (car wires)])
         (append
           (map (lambda (config) (hash-set config currentwire 0)) (all-configs (cdr wires)))
           (map (lambda (config) (hash-set config currentwire 1)) (all-configs (cdr wires)))))))
+
+;(define (all-configs wires circuit configs)
+;  [cond
+;    [(empty? wires) (list make-hash)]
+;    [else (append (map (lambda (x) (hash-set! x [car wires] 0) (hash-copy x)) (all-configs (cdr configs)))
+;                  (map (lambda (x) (hash-set! x [car wires] 1) (hash-copy x)) (all-configs (cdr configs))))]])
  
-(define (all-stable-configs circuit)
+(define (all-stable-configs2 circuit)
   (let* ((wires (all-wires circuit))
         (all-configurations (all-configs wires)))
     ;(println wires)
@@ -695,7 +703,33 @@
     ;(println (first all-configurations))
     ;(println (stable? circuit (first all-configurations)))
     ;all-configurations))
-    (filter (lambda (cfg) (not(stable? circuit cfg))) (flatten all-configurations)))) ; Use filter to only return stable configurations
+    (filter (lambda (cfg) (stable? circuit cfg)) all-configurations)))
+    ;(filter (lambda (cfg) (not(stable? circuit cfg))) (flatten all-configurations)))) ; Use filter to only return stable configurations
+
+
+(define (all-stable-configs circuit)
+  (all-stable-helper circuit (all-configs (all-wires circuit))))
+
+(define (all-stable-helper circuit configs)
+  (cond
+    [(= (length configs) 0) '()]
+    [(stable? circuit (car configs)) (append (list (car configs)) (all-stable-helper circuit (cdr configs)))]
+    [else (all-stable-helper circuit (cdr configs))]))
+
+(define (all-configs wires)
+  (cond
+    [(empty? wires) (list (make-hash))]
+    [else (append (map (lambda (x) (hash-set! x (car wires) 0) (hash-copy x)) (all-configs (cdr wires)))
+                  (map (lambda (x) (hash-set! x (car wires) 1) (hash-copy x)) (all-configs (cdr wires))))]))
+
+
+
+
+
+
+
+
+
 
 
 ; working
@@ -1026,7 +1060,7 @@
     xor c a d
     not d e
     and b e t
-|#
+    |#
     ; you MUST write combinational circuits
     ; 
     )))
