@@ -627,18 +627,16 @@
 ; working
 
 (define (init-config circuit input-values)
-  (let* ((input-wires (ckt-inputs circuit)))
-    (make-hash (append (map cons input-wires input-values) ; create list of all input wires and input values
-                       (map (lambda (wire) (cons wire 0))
-                            (filter (lambda (w) (not (member w input-wires))) 
-                                    (all-wires circuit)))))))
-
+  (let* ([inputwires (map cons (ckt-inputs circuit) input-values)]
+         [noninputwires (map (lambda (wire) (cons wire 0))
+                                     (filter (lambda (w) (not (member w (ckt-inputs circuit))))
+                                             (all-wires circuit)))]
+         [wirevals (append inputwires noninputwires)])
+    (make-hash wirevals)))
 
 ;; Hint: you may want to define all-configs, which generates all
 ;; configurations for a given number of wires.  Much like your old
 ;; friend power-set.
-
-
 
 
 ; *********************************************************
@@ -678,15 +676,10 @@
 
 ;**********************************************************
 
-(define (simulate circuit config n)
-  (define (simulate-helper current-config count acc)
-    (if (or (stable? circuit current-config) (>= count n))
-        (reverse (cons current-config acc)) ; rev the list to get the configs in correct order
-        (simulate-helper (next-config circuit current-config) 
-                         (+ 1 count) 
-                         (cons current-config acc))))
-
-  (simulate-helper config 0 '()))
+(define (simulate circuit config n [currconfig config] [count 0] [configlist '()])
+  (if (or (stable? circuit currconfig) (>= count n)) ; keep iterating
+      (reverse (cons currconfig configlist)) ; fix ordre of configs
+      (simulate circuit config n (next-config circuit currconfig) (+ 1 count) (cons currconfig configlist)))) ; add to config list
 
 ; working
 
@@ -731,16 +724,13 @@
 
 ;**********************************************************
 
-(define (final-config-helper current-config seen-configs circuit)
-    (cond
-      ((stable? circuit current-config) current-config)      
-      ((member current-config seen-configs) 'none) ; critical, checks if the config has been seem before
-      (else (final-config-helper (next-config circuit current-config)
-                                 (cons current-config seen-configs)
-                                 circuit))))
-
-(define (final-config circuit config)
-  (final-config-helper config '() circuit))
+(define (final-config circuit config [currconfig config] [pastconfigs '()])
+  (cond
+    ((stable? circuit currconfig) currconfig)
+    ((member currconfig pastconfigs) 'none) ; critical, checks if the config has been seen before
+    (else (final-config circuit config 
+                        (next-config circuit currconfig) 
+                        (cons currconfig pastconfigs)))))
 
 ; working
 
@@ -840,9 +830,11 @@
     ; NAND
     (gate 'and '(s d) 't1)
     (gate 'not '(t1) 't2)
+    
     ; NAND
     (gate 'and '(s t2) 't3)
     (gate 'not '(t3) 'q)
+
     ; NAND
     (gate 'and '(q d) 't4)
     (gate 'not '(t4) 'qc)
@@ -947,18 +939,9 @@
     not d e
     and b e t
     |#
-    ; you MUST write combinational circuits
-    ; 
+    ; you MUST write combinational circuits on the exam, but not these types of circuits
+
     )))
-
-#|
-three hints that help it out
-1. three gates, not gate or gate nor gate
-
-
-|#
-
-
 
 ; ********************************************************
 ; ********  testing, testing. 1, 2, 3 ....
