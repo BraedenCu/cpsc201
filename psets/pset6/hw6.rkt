@@ -20,8 +20,8 @@
 ; CS 201 HW #6  DUE Monday November 13th at 11:59 pm, 
 ; via the submit system on the Zoo.
 ;************************************************************
-; Name:
-; Email address:
+; Name: Braeden Cullen 
+; Email address: braeden.cullen@yale.edu
 ;************************************************************
 
 ; Computer science topics: TC-201 assembler and simulator,
@@ -36,7 +36,7 @@
 ; Modify the following definition to reflect the number of
 ; hours you spent on this assignment.
 
-(define hours 0)
+(define hours 10)
 
 ; ********************************************************
 ; ** problem 00 ** (1 fairly easy point)
