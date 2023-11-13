@@ -152,34 +152,42 @@ hello world
 
 
 (define (ram-write address contents ram)
-  (define empty-register (make-list 16 0))
+  (cond
+    ; If the address is beyond the current length of the RAM, extend the RAM
+    [(>= address (length ram))
+     (append ram
+             (make-list (- address (length ram)) (make-list 16 0))  ; Fill with 16 zeros
+             (list contents))]
 
-  (let loop ([current-address 0] [new-ram '()])
-    (cond
-      ; If the current address reaches the target address, insert the contents and append the rest of the original RAM
-      [(= current-address address)
-       (append new-ram (list contents) (if (< current-address (length ram)) (cdr (drop ram address)) '()))]
+    ; If the address is within the current length, replace the register at that address
+    [else
+     (append (take ram address)               ; Keep the registers before the address
+             (list contents)                  ; Insert the new register
+             (drop ram (+ 1 address)))]))     ; Append the rest of the registers after the address
 
-      ; If the end of the original RAM is reached, extend the RAM with empty registers
-      [(>= current-address (length ram))
-       (append new-ram (make-list (+ 1 (- address (length new-ram))) empty-register))]
-
-      ; Otherwise, continue copying the original RAM
-      [else
-       (loop (+ current-address 1) (append new-ram (list (list-ref ram current-address))))])))
-
+(define (finddiff ram1 ram2)
+  (reverse
+      (for/fold ([diffs '()])  ; Initialize the accumulator 'diffs' as an empty list
+                ([index (in-range (max (length ram1) (length ram2)))])  ; Iterate over the range
+        (let ((contents1 (ram-read index ram1))
+              (contents2 (ram-read index ram2)))
+          (if (not (equal? contents1 contents2))
+              (cons (list index contents1 contents2) diffs)  ; Add difference to 'diffs'
+              diffs)))))  ; No difference, continue with existing list
 
 (define (diff-rams ram1 ram2)
-  (reverse
-    (for/fold ([diffs '()])  ; Initialize the accumulator 'diffs' as an empty list
-              ([index (in-range (min (length ram1) (length ram2)))])  ; Iterate over the range
-      (let ((contents1 (ram-read index ram1))
-            (contents2 (ram-read index ram2)))
-        (if (not (equal? contents1 contents2))
-            (cons (list index contents1 contents2) diffs)  ; Add difference to 'diffs'
-            diffs))))  ; No difference, continue with existing list
+  (cond
+    [(or (empty? ram1) (empty? ram2)) empty]
+    ; if ram1 length is greater than ram2, extend ram2 to be the same length using empty registers
+    [(> (length ram1) (length ram2))
+     (append ram2
+             (make-list (- (length ram1) (length ram2)) (make-list 16 0))) (finddiff ram1 ram2)]
+    ; if ram2 length is greater than ram1, extend ram1 to be the same length using empty registers
+    [(> (length ram2) (length ram1))
+     (append ram1
+             (make-list (- (length ram2) (length ram1)) (make-list 16 0))) (finddiff ram1 ram2)]
+    )
   )
-
 
 
 
