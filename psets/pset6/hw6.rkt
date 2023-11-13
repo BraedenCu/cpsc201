@@ -146,14 +146,16 @@ hello world
 ;************************************************************
 
 (define (ram-read address ram)
-  (cond
-    [(>= address (length ram)) (flatten (list (map (lambda x 0) (car ram))))]
-    [else (list-ref ram address)]))
+  (if (>= address (length ram))
+      ; If the address is beyond the current length of RAM, return a list of zeros
+      (make-list 16 0)  ; Assuming the RAM register size is 16 bits
+      ; Otherwise, return the register at the specified address
+      (list-ref ram address)))
 
 
 (define (ram-write address contents ram)
   (cond
-    ; If the address is beyond the current length of the RAM, extend the RAM
+    ; If the address is beyond the current length of RAM, extend the RAM
     [(>= address (length ram))
      (append ram
              (make-list (- address (length ram)) (make-list 16 0))  ; Fill with 16 zeros
@@ -166,28 +168,20 @@ hello world
              (drop ram (+ 1 address)))]))     ; Append the rest of the registers after the address
 
 (define (finddiff ram1 ram2)
-  (reverse
-      (for/fold ([diffs '()])  ; Initialize the accumulator 'diffs' as an empty list
-                ([index (in-range (max (length ram1) (length ram2)))])  ; Iterate over the range
-        (let ((contents1 (ram-read index ram1))
-              (contents2 (ram-read index ram2)))
-          (if (not (equal? contents1 contents2))
-              (cons (list index contents1 contents2) diffs)  ; Add difference to 'diffs'
-              diffs)))))  ; No difference, continue with existing list
+  (for/fold ([diffs '()])  ; Initialize the accumulator 'diffs' as an empty list
+            ([index (in-range (max (length ram1) (length ram2)))])  ; Iterate over the range
+    (let ((contents1 (ram-read index ram1))
+          (contents2 (ram-read index ram2)))
+      (if (not (equal? contents1 contents2))
+          (cons (list index contents1 contents2) diffs)  ; Add difference to 'diffs'
+          diffs))))  ; No difference, continue with existing list
 
 (define (diff-rams ram1 ram2)
   (cond
     [(or (empty? ram1) (empty? ram2)) empty]
-    ; if ram1 length is greater than ram2, extend ram2 to be the same length using empty registers
-    [(> (length ram1) (length ram2))
-     (append ram2
-             (make-list (- (length ram1) (length ram2)) (make-list 16 0))) (finddiff ram1 ram2)]
-    ; if ram2 length is greater than ram1, extend ram1 to be the same length using empty registers
-    [(> (length ram2) (length ram1))
-     (append ram1
-             (make-list (- (length ram2) (length ram1)) (make-list 16 0))) (finddiff ram1 ram2)]
-    )
-  )
+    ; Compare ram1 and ram2 directly without modifying their lengths
+    [else (finddiff ram1 ram2)]))
+
 
 
 
