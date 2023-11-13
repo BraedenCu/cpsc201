@@ -57,7 +57,7 @@ hello world
 
 ; define xxxx below to be the correct UNIX command.
 
-(define xxxx "correct unix command")
+(define xxxx "type file")
 
 
 ;************************************************************
@@ -146,13 +146,42 @@ hello world
 ;************************************************************
 
 (define (ram-read address ram)
-  empty)
+  (cond
+    [(>= address (length ram)) (flatten (list (map (lambda x 0) (car ram))))]
+    [else (list-ref ram address)]))
+
 
 (define (ram-write address contents ram)
-  empty)
-    
+  (define empty-register (make-list 16 0))
+
+  (let loop ([current-address 0] [new-ram '()])
+    (cond
+      ; If the current address reaches the target address, insert the contents and append the rest of the original RAM
+      [(= current-address address)
+       (append new-ram (list contents) (if (< current-address (length ram)) (cdr (drop ram address)) '()))]
+
+      ; If the end of the original RAM is reached, extend the RAM with empty registers
+      [(>= current-address (length ram))
+       (append new-ram (make-list (+ 1 (- address (length new-ram))) empty-register))]
+
+      ; Otherwise, continue copying the original RAM
+      [else
+       (loop (+ current-address 1) (append new-ram (list (list-ref ram current-address))))])))
+
+
 (define (diff-rams ram1 ram2)
-  empty)
+  (reverse
+    (for/fold ([diffs '()])  ; Initialize the accumulator 'diffs' as an empty list
+              ([index (in-range (min (length ram1) (length ram2)))])  ; Iterate over the range
+      (let ((contents1 (ram-read index ram1))
+            (contents2 (ram-read index ram2)))
+        (if (not (equal? contents1 contents2))
+            (cons (list index contents1 contents2) diffs)  ; Add difference to 'diffs'
+            diffs))))  ; No difference, continue with existing list
+  )
+
+
+
 
 ;************************************************************
 ; ** problem 2 ** (10 points)
@@ -1163,10 +1192,15 @@ hello world
 
 (test 'int->bits-width (int->bits-width 14 3) "field too small")
 
+
+
 (test 'diff-configs (diff-configs config-ex1 config-ex2) '((acc (0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1) (1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1))
   (aeb (0) (1))
   (1 (0 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0) (0 0 1 0 0 0 0 0 0 0 0 0 0 1 0 1))
   (3 (0 0 0 0 0 0 0 0 0 0 0 0 1 0 1 0) (0 0 0 0 0 0 0 0 0 0 1 0 0 1 0 0))))
+
+#|
+
 
 (test 'incr-pc (incr-pc 1 config-ex1)
 (conf
@@ -1401,6 +1435,6 @@ hello world
      (0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1)
      (0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1)))))
 
-
+|#
 
 ;********************** end of hw6.rkt **********************
