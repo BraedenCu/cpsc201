@@ -148,40 +148,39 @@ hello world
 (define (ram-read address ram)
   (if (>= address (length ram))
       ; If the address is beyond the current length of RAM, return a list of zeros
-      (make-list 16 0)  ; Assuming the RAM register size is 16 bits
+      (make-list 16 0)  
       ; Otherwise, return the register at the specified address
       (list-ref ram address)))
 
 
 (define (ram-write address contents ram)
   (cond
-    ; If the address is beyond the current length of RAM, extend the RAM
+    ; extend the ram
     [(>= address (length ram))
      (append ram
-             (make-list (- address (length ram)) (make-list 16 0))  ; Fill with 16 zeros
+             (make-list (- address (length ram)) (make-list 16 0))  ; 16 zeros
              (list contents))]
 
-    ; If the address is within the current length, replace the register at that address
+    ; replace register
     [else
-     (append (take ram address)               ; Keep the registers before the address
-             (list contents)                  ; Insert the new register
-             (drop ram (+ 1 address)))]))     ; Append the rest of the registers after the address
+     (append (take ram address)               
+             (list contents)                  ; insert new reg
+             (drop ram (+ 1 address)))]))     ; add rest of reg
 
 (define (finddiff ram1 ram2)
-  (for/fold ([diffs '()])  ; Initialize the accumulator 'diffs' as an empty list
-            ([index (in-range (max (length ram1) (length ram2)))])  ; Iterate over the range
+  (for/fold ([diffs '()])  ; accumulate diffs
+            ([index (in-range (max (length ram1) (length ram2)))])  ; iterate over range
     (let ((contents1 (ram-read index ram1))
           (contents2 (ram-read index ram2)))
       (if (not (equal? contents1 contents2))
-          (cons (list index contents1 contents2) diffs)  ; Add difference to 'diffs'
-          diffs))))  ; No difference, continue with existing list
+          (cons (list index contents1 contents2) diffs)  ; add to diffs
+          diffs))))  ; no difference
 
 (define (diff-rams ram1 ram2)
   (cond
     [(or (empty? ram1) (empty? ram2)) empty]
-    ; Compare ram1 and ram2 directly without modifying their lengths
-    [else (finddiff ram1 ram2)]))
-
+    ; compare both ram lists
+    [else (reverse (finddiff ram1 ram2))])) ; correct order, CHECK CHECK CHECK CHECK WITH STAFF SOLUTION
 
 
 
@@ -245,17 +244,41 @@ hello world
 
 ;************************************************************
 
+; Extracts a sublist from lst, starting at index i and ending at index j
 (define (extract i j lst)
-  empty)
+  (take (drop lst i) (+ 1 (- j i))))
 
+; Converts a list of bits to its integer value
 (define (bits->int lst)
-  empty)
+  (let loop ((lst (reverse lst)) (acc 0) (pow 2))
+    (if (null? lst)
+        acc
+        (loop (cdr lst) (+ acc (* (car lst) (expt 2 (- (length lst) 1)))) pow))))
 
+; Converts a nonnegative integer to its binary representation
 (define (int->bits n)
-  empty)
+  (if (= n 0)
+      '(0)
+      (reverse (int->bits-helper n))))
 
+; Helper function for int->bits
+(define (int->bits-helper n)
+  (if (= n 0)
+      empty
+      (cons (remainder n 2) (int->bits-helper (quotient n 2)))))
+
+; Converts a nonnegative integer to its binary representation of specified width
 (define (int->bits-width n w)
-  empty)
+  (let ((bits (int->bits n)))
+    (if (> (length bits) w)
+        "field too small"
+        (append (make-list (- w (length bits)) 0) bits))))
+
+
+
+
+
+
 
 ;************************************************************
 ; Next we develop a simulator for the TC-201
