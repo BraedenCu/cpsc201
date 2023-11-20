@@ -244,22 +244,43 @@ hello world
 
 ;************************************************************
 
+(define (bin2dec num)
+  (define len (length num))
+  (define rnum (reverse num))
+  (define (convert n)
+    (if (empty? n)
+        0
+        (+
+         (* (car n) (expt 2 (- len (length n))))
+         (convert (cdr n)))))
+  (convert rnum)
+)
+
+(define (dec2bin n)
+  (define result empty)
+  (define (convert x)
+    (cond [(equal? x 0) result]
+          [(equal? (modulo x 2) 1) result (append '(1) (convert(truncate (/ (- x 1) 2))))]
+          [(equal? (modulo x 2) 0) append result (append '(0) (convert(truncate (/ x 2))))]
+          [else (result)]
+          )
+    )
+  (if (equal? (reverse (convert n)) empty)
+      '(0)
+      (reverse (convert n)))
+  )
+
 ; Extracts a sublist from lst, starting at index i and ending at index j
 (define (extract i j lst)
   (take (drop lst i) (+ 1 (- j i))))
 
 ; Converts a list of bits to its integer value
 (define (bits->int lst)
-  (let loop ((lst (reverse lst)) (acc 0) (pow 2))
-    (if (null? lst)
-        acc
-        (loop (cdr lst) (+ acc (* (car lst) (expt 2 (- (length lst) 1)))) pow))))
+  (bin2dec (flatten lst)))
 
 ; Converts a nonnegative integer to its binary representation
 (define (int->bits n)
-  (if (= n 0)
-      '(0)
-      (reverse (int->bits-helper n))))
+  (dec2bin n))
 
 ; Helper function for int->bits
 (define (int->bits-helper n)
