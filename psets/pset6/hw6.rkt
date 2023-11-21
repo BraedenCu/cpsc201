@@ -270,35 +270,25 @@ hello world
       (reverse (convert n)))
   )
 
-; Extracts a sublist from lst, starting at index i and ending at index j
 (define (extract i j lst)
   (take (drop lst i) (+ 1 (- j i))))
 
-; Converts a list of bits to its integer value
 (define (bits->int lst)
   (bin2dec (flatten lst)))
 
-; Converts a nonnegative integer to its binary representation
 (define (int->bits n)
   (dec2bin n))
 
-; Helper function for int->bits
 (define (int->bits-helper n)
   (if (= n 0)
       empty
       (cons (remainder n 2) (int->bits-helper (quotient n 2)))))
 
-; Converts a nonnegative integer to its binary representation of specified width
 (define (int->bits-width n w)
   (let ((bits (int->bits n)))
     (if (> (length bits) w)
         "field too small"
         (append (make-list (- w (length bits)) 0) bits))))
-
-
-
-
-
 
 
 ;************************************************************
@@ -424,17 +414,62 @@ hello world
 
 ;************************************************************
 
-(define (diff-configs config1 config2)
-  empty)
+; takes two configurations and returns a list showing where they differ, 
+; as a list of triples, giving the name (or address) of the
+; register, the contents in config1 and the contents in config2.  
+; The order should be CPU registers first (in order: acc, pc, rf, aeb) 
+; and then memory registers in increasing order of addresses.
+(define (diff-configs config1 config2) 
+  (let ((cpu1 (conf-cpu config1))
+        (cpu2 (conf-cpu config2))
+        (ram1 (conf-ram config1))
+        (ram2 (conf-ram config2)))
+    (append
+     (for/list ([entry (in-list cpu1)])
+       (let* ((key (entry-key entry))
+             (value1 (entry-value entry))
+             (value2 (entry-value (entry key cpu2))))
+         (if (not (equal? value1 value2))
+             (list key value1 value2)
+             empty)))
+     (diff-rams ram1 ram2))))
 
-(define (incr-pc n config)
-  empty)
+; takes a nonnegative integer n and a TC-201 configuration config
+; and returns the TC-201 configuration that is obtained by adding n 
+; to the value of pc.  Note that the sum should be taken modulo 4096.  
+; (Racket has a modulo procedure.)
+(define (incr-pc n config) 
+  (let ((cpu (conf-cpu config)))
+    (conf (list
+           (entry 'acc (entry-value (entry 'acc cpu)))
+           (entry 'pc (int->bits-width (+ (bits->int (entry-value (entry 'pc cpu))) n) 12))
+           (entry 'rf (entry-value (entry 'rf cpu)))
+           (entry 'aeb (entry-value (entry 'aeb cpu))))
+          (conf-ram config))))
 
-(define (do-load address config)
-  empty)
+; takes a memory address and a TC-201 configuration, and returns the TC-201 
+; configuration that is obtained by copying the contents
+; of the given memory address into the accumulator.
+; The values of all other registers (including the pc) are unchanged.
+(define (do-load address config) 
+  (let ((cpu (conf-cpu config))
+        (ram (conf-ram config)))
+    (conf (list
+           (entry 'acc (ram-read address ram))
+           (entry 'pc (entry-value (entry 'pc cpu)))
+           (entry 'rf (entry-value (entry 'rf cpu)))
+           (entry 'aeb (entry-value (entry 'aeb cpu))))
+          ram)))
 
-(define (do-store address config)
-  empty)
+; (do-store address config)
+; takes a memory address and a TC-201 configuration, and returns the TC-201 
+; configuration that is obtained by copying the contents of the accumulator 
+; into the given memory address.
+; The values of all other registers (including the pc) are unchanged.
+(define (do-store address config) 
+  (let ((cpu (conf-cpu config))
+        (ram (conf-ram config)))
+    (conf cpu (ram-write address (entry-value (entry 'acc cpu)) ram))))
 	   
 ;************************************************************
 ; ** problem 4 ** (10 points)
@@ -1245,8 +1280,6 @@ hello world
   (1 (0 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0) (0 0 1 0 0 0 0 0 0 0 0 0 0 1 0 1))
   (3 (0 0 0 0 0 0 0 0 0 0 0 0 1 0 1 0) (0 0 0 0 0 0 0 0 0 0 1 0 0 1 0 0))))
 
-#|
-
 
 (test 'incr-pc (incr-pc 1 config-ex1)
 (conf
@@ -1260,6 +1293,7 @@ hello world
    (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
    (0 0 0 0 0 0 0 0 0 0 0 0 1 0 1 0)
    (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))))
+
 
 (test 'diff-configs (diff-configs config-ex2 (incr-pc 4090 config-ex2))
 '((pc (0 0 0 0 0 0 0 0 0 1 1 1) (0 0 0 0 0 0 0 0 0 0 0 1))))
@@ -1276,7 +1310,7 @@ hello world
 (test 'load-store  (diff-configs config-ex2 (do-store 0 config-ex2))
 '((0 (0 0 0 1 0 0 0 0 0 0 0 0 0 0 1 1) (1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1))))
 
-
+#|
 (test 'add-sub (diff-configs config-ex1 (do-add 3 config-ex1))
 '((acc (0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1) (0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 1))))
 
@@ -1320,6 +1354,7 @@ hello world
 
 (test 'loadi-storei (diff-configs config-ex3 (do-storei 2 config-ex3))
 '((4 (0 0 0 0 1 1 1 1 0 0 0 0 1 1 1 1) (0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1))))
+
 
 (test 'shift  (diff-configs config-ex3 (do-shift 2 config-ex3))
 '((acc (0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1) (0 0 0 0 0 0 0 0 1 1 1 1 0 0 0 0))))
