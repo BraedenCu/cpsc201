@@ -655,21 +655,27 @@ Steps
 5. Update the configuration
 |#
 
-(define (do-sub address config) 
+(define (do-sub address config)
   (let* ([acc (lookup-cpu 'acc (conf-cpu config))]
          [ram-val (ram-read address (conf-ram config))]
          [acc-int (- (sm-bits->int acc) (sm-bits->int ram-val))]
-         [new-aeb (if (or (> acc-int 32767) (< acc-int -32767)) '(1) '(0))] 
+         [new-aeb (if (or (> acc-int 32767) (< acc-int -32767)) '(1) '(0))]
          [acc (if (equal? '(0) new-aeb)
                   (sm-int->bits acc-int)
-                  empty-ram)] 
+                  empty-ram)]
           ; adjust new-acc-value to be 16 bits
          [acc-padded (if (< (length acc) 16)
                                    (append (make-list (- 16 (length acc)) 0) acc)
-                                   acc)] 
-         [new-cpu (update 'acc acc-padded (conf-cpu config))]
-         [new-cpu (update 'aeb new-aeb new-cpu)]) 
+                                   acc)]
+         ; write another line that checkes if the first digit is one before padding. if the first digit is one, start padding after that digit, otherwise pad directly to the beginning
+         [acc-padded-2 (if (equal? (car acc) 1)
+                           (append (list 1) (make-list (- 16 (length acc)) 0) (cdr acc))
+                           (append (make-list (- 16 (length acc)) 0) acc))]
+         [new-cpu (update 'acc acc-padded-2 (conf-cpu config))]
+         [new-cpu (update 'aeb new-aeb new-cpu)])
     (conf new-cpu (conf-ram config))))
+
+
 
 ;************************************************************
 ; ** problem 5 ** (10 points)
