@@ -1001,34 +1001,35 @@ produced by:
 
 (define (do-shift address config)
   (let* ((ram (conf-ram config))
-         (shift-amount-bits (ram-read address ram))  ; Get shift amount in bits
-         (shift-amount (bits->int shift-amount-bits))  ; Convert to integer
+         (shift-amount-bits (ram-read address ram))
+         (shift-amount (sm-bits->int shift-amount-bits))
          (cpu (conf-cpu config))
          (acc-entry (find-entry-by-key 'acc cpu))
-         (acc-bits (entry-value acc-entry)))  ; Get accumulator bits
+         (acc-bits (entry-value acc-entry))
+         (shifted-acc-bits (if (>= shift-amount 0)
+                               (left-shift acc-bits shift-amount)
+                               (right-shift acc-bits (- shift-amount))))
+         (padded-acc-bits (pad-to-16-bits shifted-acc-bits)))
+    (conf (replace-entry 'acc (entry 'acc padded-acc-bits) cpu) ram)))
 
-    ;; Determine shift direction and perform the shift
-    (let ((new-acc-bits (if (>= shift-amount 0)
-                            (circular-left-shift acc-bits shift-amount)
-                            (circular-right-shift acc-bits (- shift-amount)))))
-      ;; Update and return the configuration
-      (conf (replace-entry 'acc (entry 'acc new-acc-bits) cpu) ram))))
+(define (left-shift bits amount)
+  (let ((shifted (drop bits amount)))
+    (append shifted (make-list (min amount 16) 0))))
 
-(define (circular-left-shift bits amount)
-  (let* ((shift-amount (modulo amount 16))  ; Ensure shift amount is within 0-15
-         (removed (take bits shift-amount)))
-    (append (drop bits shift-amount) removed)))  ; Rotate bits left
+(define (right-shift bits amount)
+  (let ((shifted (take-right bits amount)))
+    (append (make-list (min amount 16) 0) shifted)))
 
-(define (circular-right-shift bits amount)
-  (let* ((shift-amount (modulo amount 16))  ; Ensure shift amount is within 0-15
-         (removed (drop-right bits shift-amount)))
-    (append removed (take-right bits shift-amount))))  ; Rotate bits right
+(define (pad-to-16-bits bits)
+  (let ((bit-count (length bits)))
+    (if (< bit-count 16)
+        (append (make-list (- 16 bit-count) 0) bits)
+        bits)))
 
 (define (take-right lst n)
   (if (> n (length lst))
       lst
       (list-tail lst (- (length lst) n))))
-
 
 
 ;************************************************************
@@ -1194,8 +1195,195 @@ The result is stored in the accumulator.  All other registers are unaffected.
 
 ;************************************************************
 
-(define (next-config config)
-  empty)
+(define (next-config config) 
+  (let* ((cpu (conf-cpu config))
+         (pc-entry (find-entry-by-key 'pc cpu))
+         (pc-value (entry-value pc-entry))
+         (pc-int (sm-bits->int pc-value))
+         (instruction (ram-read pc-int (conf-ram config)))
+         (opcode (bits->int (extract 0 3 instruction)))
+         (address (extract 4 15 instruction)))
+    (cond ((= opcode 0) (do-halt config))
+          ((= opcode 1) (do-load address config))
+          ((= opcode 2) (do-store address config))
+          ((= opcode 3) (do-add address config))
+          ((= opcode 4) (do-sub address config))
+          ((= opcode 5) (do-input config))
+          ((= opcode 6) (do-output config))
+          ((= opcode 7) (do-jump address config))
+          ((= opcode 8) (do-skipzero config))
+          ((= opcode 9) (do-skippos config))
+          ((= opcode 10) (do-skiperr config))
+          ((= opcode 11) (do-loadi address config))
+          ((= opcode 12) (do-storei address config))
+          ((= opcode 13) (do-shift address config))
+          ((= opcode 14) (do-and address config))
+          ((= opcode 15) (do-xor address config)))))
+
+(define (do-halt config)
+  (let ((cpu (conf-cpu config)))
+    (conf (replace-entry 'rf (entry 'rf (list 0)) cpu) (conf-ram config))))
+
+#|
+(define (do-load address config)
+  (let* ((ram (conf-ram config))
+         (cpu (conf-cpu config))
+         (acc-entry (find-entry-by-key 'acc cpu))
+         (new-acc-value (ram-read address ram))
+         (new-acc-entry (entry 'acc new-acc-value))
+         (new-cpu (replace-entry 'acc new-acc-entry cpu)))
+    (conf new-cpu ram)))
+
+(define (do-store address config)
+  (let* ((ram (conf-ram config))
+         (cpu (conf-cpu config))
+         (acc-entry (find-entry-by-key 'acc cpu))
+         (acc-value (entry-value acc-entry))
+         (new-ram (ram-write address acc-value ram)))
+    (conf cpu new-ram)))
+
+(define (do-add address config)
+  (let* ((ram (conf-ram config))
+         (cpu (conf-cpu config))
+         (acc-entry (find-entry-by-key 'acc cpu))
+         (acc-value (entry-value acc-entry))
+         (mem-value (ram-read address ram))
+         (new-acc-value (int->bits-width (+ (sm-bits->int acc-value) (sm-bits->int mem-value)) 16))
+         (new-acc-entry (entry 'acc new-acc-value))
+         (new-cpu (replace-entry 'acc new-acc-entry cpu)))
+    (conf new-cpu ram)))
+
+(define (do-sub address config)
+  (let* ((ram (conf-ram config))
+         (cpu (conf-cpu config))
+         (acc-entry (find-entry-by-key 'acc cpu))
+         (acc-value (entry-value acc-entry))
+         (mem-value (ram-read address ram))
+         (new-acc-value (int->bits-width (- (sm-bits->int acc-value) (sm-bits->int mem-value)) 16))
+         (new-acc-entry (entry 'acc new-acc-value))
+         (new-cpu (replace-entry 'acc new-acc-entry cpu)))
+    (conf new-cpu ram)))
+
+(define (do-input config)
+  (let* ((cpu (conf-cpu config))
+         (acc-entry (find-entry-by-key 'acc cpu))
+         (new-acc-value (list (read)))
+         (new-acc-entry (entry 'acc new-acc-value))
+         (new-cpu (replace-entry 'acc new-acc-entry cpu)))
+    (conf new-cpu (conf-ram config))))
+
+(define (do-output config)
+  (let* ((cpu (conf-cpu config))
+         (acc-entry (find-entry-by-key 'acc cpu))
+         (acc-value (entry-value acc-entry)))
+    (display (sm-bits->int acc-value))
+    (newline)
+    config))
+
+(define (do-jump address config)
+  (let* ((cpu (conf-cpu config))
+         (pc-entry (find-entry-by-key 'pc cpu))
+         (new-pc-value (int->bits-width address 12))
+         (new-pc-entry (entry 'pc new-pc-value))
+         (new-cpu (replace-entry 'pc new-pc-entry cpu)))
+    (conf new-cpu (conf-ram config))))
+
+(define (do-skipzero config)
+  (let* ((cpu (conf-cpu config))
+         (acc-entry (find-entry-by-key 'acc cpu))
+         (acc-value (entry-value acc-entry))
+         (acc-int (sm-bits->int acc-value))
+         (pc-entry (find-entry-by-key 'pc cpu))
+         (pc-value (entry-value pc-entry))
+         (increment (if (zero? acc-int) 2 1)) ; Increment by 2 if accumulator is 0, else by 1
+         (new-pc-value (int->bits-width (modulo (+ (sm-bits->int pc-value) increment) 4096) 12)) ; Update pc value
+         (new-pc-entry (entry 'pc new-pc-value))
+         (new-cpu (replace-entry 'pc new-pc-entry cpu))) ; Replace the old pc entry with the new one
+    (conf new-cpu (conf-ram config)))) ; Create the new configuration with updated CPU and unchanged RAM
+
+(define (do-skippos config)
+  (let* ((cpu (conf-cpu config))
+         (acc-entry (find-entry-by-key 'acc cpu))
+         (acc-value (entry-value acc-entry))
+         (acc-int (sm-bits->int acc-value))
+         (pc-entry (find-entry-by-key 'pc cpu))
+         (pc-value (entry-value pc-entry))
+         (increment (if (> acc-int 0) 2 1)) ; Increment by 2 if accumulator is positive, else by 1
+         (new-pc-value (int->bits-width (modulo (+ (sm-bits->int pc-value) increment) 4096) 12)) ; Update pc value
+         (new-pc-entry (entry 'pc new-pc-value))
+         (new-cpu (replace-entry 'pc new-pc-entry cpu))) ; Replace the old pc entry with the new one
+    (conf new-cpu (conf-ram config)))) ; Create the new configuration with updated CPU and unchanged RAM
+
+(define (do-skiperr config)
+  (let* ((cpu (conf-cpu config))
+         (aeb-entry (find-entry-by-key 'aeb cpu))
+         (pc-entry (find-entry-by-key 'pc cpu))
+         (aeb-value (entry-value aeb-entry))
+         (pc-value (entry-value pc-entry))
+         (aeb-int (sm-bits->int aeb-value))
+         (increment (if (= aeb-int 1) 2 1)) ; Increment by 2 if aeb is 1, else by 1
+         (new-pc-value (int->bits-width (modulo (+ (sm-bits->int pc-value) increment) 4096) 12)) ; Update pc value
+         (new-pc-entry (entry 'pc new-pc-value))
+         (new-aeb-entry (entry 'aeb (list 0)))
+         (new-cpu (replace-entry 'pc new-pc-entry (replace-entry 'aeb new-aeb-entry cpu)))) ; Replace the old pc entry with the new one
+    (conf new-cpu (conf-ram config)))) ; Create the new configuration with updated CPU and unchanged RAM
+
+(define (do-loadi address config)
+  (let* ((ram (conf-ram config))
+         (indirect-address-entry (ram-read address ram))  ; Read the memory at the given address
+         (indirect-address (bits->int (extract 4 15 indirect-address-entry)))  ; Extract low-order 12 bits and convert to integer
+         (new-acc-value (ram-read indirect-address ram))  ; Read the value at the indirect address
+         (new-acc-entry (entry 'acc new-acc-value))  ; Create new accumulator entry
+         (new-cpu (replace-entry 'acc new-acc-entry (conf-cpu config))))  ; Replace the accumulator in the CPU configuration
+    (conf new-cpu (conf-ram config))))  ; Return new configuration
+  
+(define (do-storei address config)
+  (let* ((ram (conf-ram config))
+         (cpu (conf-cpu config))
+         (acc-entry (find-entry-by-key 'acc cpu))
+         (acc-value (entry-value acc-entry))  ; Get the accumulator value
+         (indirect-address-entry (ram-read address ram))  ; Read the memory at the given address
+         (indirect-address (bits->int (extract 4 15 indirect-address-entry)))  ; Extract low-order 12 bits and convert to integer
+         (new-ram (ram-write indirect-address acc-value ram)))  ; Write the accumulator value to the indirect address in RAM
+    (conf (conf-cpu config) new-ram)))  ; Return new configuration with updated RAM
+  
+(define (do-shift address config)
+  (let* ((ram (conf-ram config))
+         (shift-amount-bits (ram-read address ram))  ; Get shift amount in bits
+         (shift-amount (bits->int shift-amount-bits))  ; Convert to integer
+         (cpu (conf-cpu config))
+         (acc-entry (find-entry-by-key 'acc cpu))
+         (acc-bits (entry-value acc-entry)))  ; Get accumulator bits
+
+    ;; Determine shift direction and perform the shift
+    (let ((new-acc-bits (if (>= shift-amount 0)
+                            (circular-left-shift acc-bits shift-amount)
+                            (circular-right-shift acc-bits (- shift-amount)))))
+      ;; Update and return the configuration
+      (conf (replace-entry 'acc (entry 'acc new-acc-bits) cpu) ram))))
+
+(define (do-and address config)
+  (let* ((ram (conf-ram config))
+         (cpu (conf-cpu config))
+         (acc-entry (find-entry-by-key 'acc cpu))
+         (acc-bits (entry-value acc-entry))  ; Current accumulator bits
+         (mem-value (ram-read address ram))
+         (new-acc-bits (bitwise-and acc-bits mem-value)))  ; Perform bitwise AND
+    ;; Update the configuration
+    (conf (replace-entry 'acc (entry 'acc new-acc-bits) cpu) ram)))
+
+(define (do-xor address config)
+  (let* ((ram (conf-ram config))
+         (cpu (conf-cpu config))
+         (acc-entry (find-entry-by-key 'acc cpu))
+         (acc-bits (entry-value acc-entry))  ; Current accumulator bits
+         (mem-value (ram-read address ram))
+         (new-acc-bits (bitwise-xor acc-bits mem-value)))  ; Perform bitwise XOR
+    ;; Update the configuration
+    (conf (replace-entry 'acc (entry 'acc new-acc-bits) cpu) ram)))
+|#
+
+
 
 ;************************************************************
 ; ** problem 10 ** (10 points)
