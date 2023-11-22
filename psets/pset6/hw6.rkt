@@ -728,7 +728,7 @@ let construct:
 |#
 (define (do-input config)
   (let ((value (begin (display "input = ") (read))))
-    (let ((new-acc-entry (entry 'acc (int->bits (modulo value (expt 2 15))))))
+    (let ((new-acc-entry (entry 'acc (sm-int->bits (modulo value (expt 2 15))))))
       (conf (replace-entry 'acc new-acc-entry (conf-cpu config)) (conf-ram config)))))
 
 #|
@@ -742,7 +742,7 @@ produced by:
 |#
 (define (do-output config) 
   (let ((acc-entry (car (filter (lambda (entry) (equal? (entry-key entry) 'acc)) (conf-cpu config)))))
-    (let ((value-from-accumulator (bits->int (entry-value acc-entry))))
+    (let ((value-from-accumulator (sm-bits->int (entry-value acc-entry))))
       (begin
         (display "output = ")
         (display value-from-accumulator)
@@ -832,9 +832,9 @@ produced by:
          (pc-entry (find-entry-by-key 'pc cpu))
          (acc-value (entry-value acc-entry))
          (pc-value (entry-value pc-entry))
-         (acc-int (bits->int acc-value))
+         (acc-int (sm-bits->int acc-value))
          (increment (if (zero? acc-int) 2 1)) ; Increment by 2 if accumulator is 0, else by 1
-         (new-pc-value (int->bits-width (modulo (+ (bits->int pc-value) increment) 4096) 12)) ; Update pc value
+         (new-pc-value (int->bits-width (modulo (+ (sm-bits->int pc-value) increment) 4096) 12)) ; Update pc value
          (new-pc-entry (entry 'pc new-pc-value))
          (new-cpu (replace-entry 'pc new-pc-entry cpu))) ; Replace the old pc entry with the new one
     (conf new-cpu (conf-ram config)))) ; Create the new configuration with updated CPU and unchanged RAM
@@ -853,9 +853,9 @@ produced by:
          (pc-entry (find-entry-by-key 'pc cpu))
          (acc-value (entry-value acc-entry))
          (pc-value (entry-value pc-entry))
-         (acc-int (bits->int acc-value))
+         (acc-int (sm-bits->int acc-value))
          (increment (if (> acc-int 0) 2 1)) ; Increment by 2 if accumulator is positive, else by 1
-         (new-pc-value (int->bits-width (modulo (+ (bits->int pc-value) increment) 4096) 12)) ; Update pc value
+         (new-pc-value (int->bits-width (modulo (+ (sm-bits->int pc-value) increment) 4096) 12)) ; Update pc value
          (new-pc-entry (entry 'pc new-pc-value))
          (new-cpu (replace-entry 'pc new-pc-entry cpu))) ; Replace the old pc entry with the new one
     (conf new-cpu (conf-ram config)))) ; Create the new configuration with updated CPU and unchanged RAM
@@ -875,9 +875,9 @@ produced by:
          (pc-entry (find-entry-by-key 'pc cpu))
          (aeb-value (entry-value aeb-entry))
          (pc-value (entry-value pc-entry))
-         (aeb-int (bits->int aeb-value))
+         (aeb-int (sm-bits->int aeb-value))
          (increment (if (= aeb-int 1) 2 1)) ; Increment by 2 if aeb is 1, else by 1
-         (new-pc-value (int->bits-width (modulo (+ (bits->int pc-value) increment) 4096) 12)) ; Update pc value
+         (new-pc-value (int->bits-width (modulo (+ (sm-bits->int pc-value) increment) 4096) 12)) ; Update pc value
          (new-pc-entry (entry 'pc new-pc-value))
          (new-aeb-entry (entry 'aeb (list 0)))
          (new-cpu (replace-entry 'pc new-pc-entry (replace-entry 'aeb new-aeb-entry cpu)))) ; Replace the old pc entry with the new one
@@ -998,29 +998,39 @@ produced by:
   A positive number shifts the accumulator to the left.
   A negative number shifts the accumulator to the right.
 |#
-(define (do-shift address config)
-  (let* ((ram (conf-ram config))  ; Extract RAM from configuration
-         (shift-amount-bits (ram-read address ram))  ; Get the number of bits to shift from the specified memory address
-         (shift-amount (modulo (bits->int shift-amount-bits) 16))  ; Convert the list of bits to an integer and take modulo 16
-         (cpu (conf-cpu config))  ; Extract CPU from configuration
-         (acc-entry (find-entry-by-key 'acc cpu))  ; Find the accumulator entry
-         (acc-bits (entry-value acc-entry)))  ; Get the bit list of the accumulator
 
-    ;; Perform the shift
+(define (do-shift address config)
+  (let* ((ram (conf-ram config))
+         (shift-amount-bits (ram-read address ram))  ; Get shift amount in bits
+         (shift-amount (bits->int shift-amount-bits))  ; Convert to integer
+         (cpu (conf-cpu config))
+         (acc-entry (find-entry-by-key 'acc cpu))
+         (acc-bits (entry-value acc-entry)))  ; Get accumulator bits
+
+    ;; Determine shift direction and perform the shift
     (let ((new-acc-bits (if (>= shift-amount 0)
-                            (left-shift acc-bits shift-amount)
-                            (right-shift acc-bits shift-amount))))
-      ;; Update and return the new configuration
+                            (circular-left-shift acc-bits shift-amount)
+                            (circular-right-shift acc-bits (- shift-amount)))))
+      ;; Update and return the configuration
       (conf (replace-entry 'acc (entry 'acc new-acc-bits) cpu) ram))))
 
-(define (left-shift bits amount)
-  (append (drop bits amount) (make-list amount 0)))
+(define (circular-left-shift bits amount)
+  (let* ((shift-amount (modulo amount 16))  ; Ensure shift amount is within 0-15
+         (removed (take bits shift-amount)))
+    (append (drop bits shift-amount) removed)))  ; Rotate bits left
 
-(define (right-shift bits amount)
-  (append (make-list amount 0) (take bits (- (length bits) amount))))
+(define (circular-right-shift bits amount)
+  (let* ((shift-amount (modulo amount 16))  ; Ensure shift amount is within 0-15
+         (removed (drop-right bits shift-amount)))
+    (append removed (take-right bits shift-amount))))  ; Rotate bits right
+
+(define (take-right lst n)
+  (if (> n (length lst))
+      lst
+      (list-tail lst (- (length lst) n))))
 
 
-  
+
 ;************************************************************
 ; ** problem 8 ** (10 points)
 ; Write two procedures
@@ -1063,15 +1073,37 @@ takes a memory address and a TC-201 configuration and returns a TC-201 configura
 refleccts the result of doing and of the contents of the given memory address and the accumulator.
 The result is stored in the accumulator.  All other registers are unaffected.
 |#
-(define (do-and address config) empty)
+(define (do-and address config)
+  (let* ((ram (conf-ram config))
+         (mem-value (ram-read address ram))  ; Read value from memory address
+         (cpu (conf-cpu config))
+         (acc-entry (find-entry-by-key 'acc cpu))
+         (acc-bits (entry-value acc-entry))  ; Current accumulator bits
+         (new-acc-bits (bitwise-and acc-bits mem-value)))  ; Perform bitwise AND
+    ;; Update the configuration
+    (conf (replace-entry 'acc (entry 'acc new-acc-bits) cpu) ram)))
+
+(define (bitwise-and bits1 bits2)
+  (map (lambda (bit1 bit2) (if (and (= bit1 1) (= bit2 1)) 1 0)) bits1 bits2))
   
 #| 
 takes a memory address and a TC-201 configuration and returns a TC-201 configuration that
 refleccts the result of doing an exclusive or of the contents of the given memory address and the accumulator.
 The result is stored in the accumulator.  All other registers are unaffected.
 |#
-(define (do-xor address config) empty
-  )
+(define (do-xor address config)
+  (let* ((ram (conf-ram config))
+         (mem-value (ram-read address ram))  ; Read value from memory address
+         (cpu (conf-cpu config))
+         (acc-entry (find-entry-by-key 'acc cpu))
+         (acc-bits (entry-value acc-entry))  ; Current accumulator bits
+         (new-acc-bits (bitwise-xor acc-bits mem-value)))  ; Perform bitwise XOR
+    ;; Update the configuration
+    (conf (replace-entry 'acc (entry 'acc new-acc-bits) cpu) ram)))
+
+(define (bitwise-xor bits1 bits2)
+  (map (lambda (bit1 bit2) (if (= bit1 bit2) 0 1)) bits1 bits2))
+
 
 ;************************************************************
 ; ** problem 9 ** (10 points)
@@ -1634,7 +1666,7 @@ The result is stored in the accumulator.  All other registers are unaffected.
 '((acc (0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1) (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
   (aeb (0) (1))))
 
-#|
+
 (test 'skip-jump (diff-configs config-ex1 (do-jump 5 config-ex1))
 '((pc (0 0 0 0 0 0 0 0 0 1 1 1) (0 0 0 0 0 0 0 0 0 1 0 1))))
 
@@ -1670,8 +1702,8 @@ The result is stored in the accumulator.  All other registers are unaffected.
 (test 'shift (diff-configs config-ex3 (do-shift 6 config-ex3))
 '((acc (0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1) (0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1))))
 
-|#
-#|
+
+
 (test 'and (diff-configs config-ex2 (do-and 1 config-ex2))
   '((acc (1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1) (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1))))
 
@@ -1685,7 +1717,7 @@ The result is stored in the accumulator.  All other registers are unaffected.
  '((acc (0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1) (0 1 0 1 0 1 0 1 0 1 0 1 1 0 1 0))))
 
 
-
+#|
 (test 'next-config (next-config config-ex4)
  (conf
   (list
