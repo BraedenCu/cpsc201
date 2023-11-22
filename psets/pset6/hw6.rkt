@@ -832,9 +832,9 @@ produced by:
          (pc-entry (find-entry-by-key 'pc cpu))
          (acc-value (entry-value acc-entry))
          (pc-value (entry-value pc-entry))
-         (acc-int (sm-bits->int acc-value))
+         (acc-int (bits->int acc-value))
          (increment (if (zero? acc-int) 2 1)) ; Increment by 2 if accumulator is 0, else by 1
-         (new-pc-value (int->bits-width (modulo (+ (sm-bits->int pc-value) increment) 4096) 12)) ; Update pc value
+         (new-pc-value (int->bits-width (modulo (+ (bits->int pc-value) increment) 4096) 12)) ; Update pc value
          (new-pc-entry (entry 'pc new-pc-value))
          (new-cpu (replace-entry 'pc new-pc-entry cpu))) ; Replace the old pc entry with the new one
     (conf new-cpu (conf-ram config)))) ; Create the new configuration with updated CPU and unchanged RAM
@@ -853,9 +853,9 @@ produced by:
          (pc-entry (find-entry-by-key 'pc cpu))
          (acc-value (entry-value acc-entry))
          (pc-value (entry-value pc-entry))
-         (acc-int (sm-bits->int acc-value))
+         (acc-int (bits->int acc-value))
          (increment (if (> acc-int 0) 2 1)) ; Increment by 2 if accumulator is positive, else by 1
-         (new-pc-value (int->bits-width (modulo (+ (sm-bits->int pc-value) increment) 4096) 12)) ; Update pc value
+         (new-pc-value (int->bits-width (modulo (+ (bits->int pc-value) increment) 4096) 12)) ; Update pc value
          (new-pc-entry (entry 'pc new-pc-value))
          (new-cpu (replace-entry 'pc new-pc-entry cpu))) ; Replace the old pc entry with the new one
     (conf new-cpu (conf-ram config)))) ; Create the new configuration with updated CPU and unchanged RAM
@@ -875,9 +875,9 @@ produced by:
          (pc-entry (find-entry-by-key 'pc cpu))
          (aeb-value (entry-value aeb-entry))
          (pc-value (entry-value pc-entry))
-         (aeb-int (sm-bits->int aeb-value))
+         (aeb-int (bits->int aeb-value))
          (increment (if (= aeb-int 1) 2 1)) ; Increment by 2 if aeb is 1, else by 1
-         (new-pc-value (int->bits-width (modulo (+ (sm-bits->int pc-value) increment) 4096) 12)) ; Update pc value
+         (new-pc-value (int->bits-width (modulo (+ (bits->int pc-value) increment) 4096) 12)) ; Update pc value
          (new-pc-entry (entry 'pc new-pc-value))
          (new-aeb-entry (entry 'aeb (list 0)))
          (new-cpu (replace-entry 'pc new-pc-entry (replace-entry 'aeb new-aeb-entry cpu)))) ; Replace the old pc entry with the new one
@@ -1764,7 +1764,7 @@ The result is stored in the accumulator.  All other registers are unaffected.
 
 (test 'hours hours (lambda (x) (> x 0)))
 
-#|
+
 
 (test 'ram-read (ram-read 0 ram-ex1) '(0 0 0 1 0 0 0 0 0 0 0 0 0 0 1 1))
 
@@ -1835,7 +1835,7 @@ The result is stored in the accumulator.  All other registers are unaffected.
 '((0 (0 0 0 1 0 0 0 0 0 0 0 0 0 0 1 1) (1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1))))
 
  
-|#
+
 (test 'add-sub (diff-configs config-ex1 (do-add 3 config-ex1))
 '((acc (0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1) (0 0 0 0 0 0 0 0 0 0 0 1 1 0 0 1))))
 
