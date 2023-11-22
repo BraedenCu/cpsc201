@@ -548,7 +548,7 @@ hello world
 ;'((acc (1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1) (0 0 0 0 0 0 0 0 0 0 1 0 0 0 0 1))
 ;  (aeb (1) (0)))
 
-;works 
+
 ;> (diff-configs config-ex1 (do-sub 3 config-ex1))
 ;'((acc (0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1) (0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 1)))
 
@@ -578,7 +578,7 @@ Steps
 
 (define empty-ram (make-list 16 0))
 
-(define (do-add1 address config)
+(define (do-add address config)
   (let* ([acc (lookup-cpu 'acc (conf-cpu config))]
          [ram-val (ram-read address (conf-ram config))]
          [acc-int (+ (sm-bits->int acc) (sm-bits->int ram-val))]
@@ -586,7 +586,11 @@ Steps
          [acc (if (equal? '(0) new-aeb)
                   (sm-int->bits acc-int)
                   empty-ram)]
-         [new-cpu (update 'acc acc (conf-cpu config))]
+          ; adjust new-acc-value to be 16 bits
+         [acc-padded (if (< (length acc) 16)
+                                   (append (make-list (- 16 (length acc)) 0) acc)
+                                   acc)]
+         [new-cpu (update 'acc acc-padded (conf-cpu config))]
          [new-cpu (update 'aeb new-aeb new-cpu)])
     (conf new-cpu (conf-ram config))))
 
@@ -601,8 +605,8 @@ Steps
     [(equal? part (entry-key (car cpu))) (cons (entry part value) (cdr cpu))]
     [else (cons (car cpu) (update part value (cdr cpu)))]))
 
-
-(define (do-add address config)
+#|
+(define (do-add2 address config)
   (let* ((ram (conf-ram config))
          (acc-entry (car (filter (lambda (entry) (equal? (entry-key entry) 'acc)) (conf-cpu config))))
          (acc-value (entry-value acc-entry))
@@ -622,6 +626,7 @@ Steps
          (new-cpu (replace-entry 'acc new-acc-entry (replace-entry 'aeb new-aeb-entry (conf-cpu config)))))
     
     (conf new-cpu ram)))
+|#
 
 (define (sm-bits->int bits)
   (if (equal? (car bits) 0)
@@ -650,32 +655,21 @@ Steps
 5. Update the configuration
 |#
 
-(define (do-sub address config)
-  (let* ((ram (conf-ram config))
-         (acc-entry (car (filter (lambda (entry) (equal? (entry-key entry) 'acc)) (conf-cpu config))))
-         (acc-value (entry-value acc-entry))
-         (mem-value (ram-read address ram))
-         (acc-int (bits->int acc-value))   ; Convert accumulator value from bits to integer
-         (mem-int (bits->int mem-value))   ; Convert memory value from bits to integer
-         (diff (subtract acc-int mem-int)) ; Perform integer subtraction
-         (new-acc-value (int->bits diff))   ; Convert difference back to bits
-         (overflow (if (> (length new-acc-value) 16) 1 0)) ; Check for overflow
-         ;; Adjust new-acc-value to be exactly 16 bits
-         (new-acc-value-padded (if (< (length new-acc-value) 16)
-                                   (append (make-list (- 16 (length new-acc-value)) 0) new-acc-value)
-                                   new-acc-value))
-         (new-acc-value-truncated (if (> (length new-acc-value-padded) 16)
-                                      (drop-right new-acc-value-padded 1)
-                                      new-acc-value-padded)) ; Truncate if necessary
-         (new-aeb-value (list overflow))
-         (new-acc-entry (entry 'acc new-acc-value-truncated))
-         (new-aeb-entry (entry 'aeb new-aeb-value))
-         (new-cpu (replace-entry 'acc new-acc-entry (replace-entry 'aeb new-aeb-entry (conf-cpu config)))))
-    (conf new-cpu ram)))
-
-(define (subtract x y)
-  (- x y))
-
+(define (do-sub address config) 
+  (let* ([acc (lookup-cpu 'acc (conf-cpu config))]
+         [ram-val (ram-read address (conf-ram config))]
+         [acc-int (- (sm-bits->int acc) (sm-bits->int ram-val))]
+         [new-aeb (if (or (> acc-int 32767) (< acc-int -32767)) '(1) '(0))] 
+         [acc (if (equal? '(0) new-aeb)
+                  (sm-int->bits acc-int)
+                  empty-ram)] 
+          ; adjust new-acc-value to be 16 bits
+         [acc-padded (if (< (length acc) 16)
+                                   (append (make-list (- 16 (length acc)) 0) acc)
+                                   acc)] 
+         [new-cpu (update 'acc acc-padded (conf-cpu config))]
+         [new-cpu (update 'aeb new-aeb new-cpu)]) 
+    (conf new-cpu (conf-ram config))))
 
 ;************************************************************
 ; ** problem 5 ** (10 points)
@@ -1632,7 +1626,6 @@ The result is stored in the accumulator.  All other registers are unaffected.
 (test 'add-sub (diff-configs config-ex1 (do-sub 3 config-ex1))
 '((acc (0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1) (0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 1))))
 
-#|
 (test 'add-sub (diff-configs config-ex2 (do-sub 3 config-ex2))
 '((acc (1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1) (1 0 0 0 0 0 0 0 0 0 1 0 0 1 1 1))
   (aeb (1) (0))))
@@ -1641,7 +1634,7 @@ The result is stored in the accumulator.  All other registers are unaffected.
 '((acc (0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1) (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
   (aeb (0) (1))))
 
-
+#|
 (test 'skip-jump (diff-configs config-ex1 (do-jump 5 config-ex1))
 '((pc (0 0 0 0 0 0 0 0 0 1 1 1) (0 0 0 0 0 0 0 0 0 1 0 1))))
 
