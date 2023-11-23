@@ -573,6 +573,30 @@ Steps
 5. Update the configuration
 |#
 
+#|
+(define (sm-bits->int bits)
+  (let ((sign (car bits)) ; Extract the sign bit
+        (magnitude (cdr bits))) ; Extract the magnitude bits
+    (if (= sign 1)
+        (- (bits->int magnitude)) ; If sign bit is 1, it's a negative number
+        (bits->int magnitude)))) ; Otherwise, it's positive
+
+(define (sm-int->bits int)
+  (if (>= int 0)
+      (int->bits-width int 16)
+      (cons 1 (int->bits-width (* -1 int) 15))))
+|#
+
+(define (sm-bits->int bits)
+  (if (equal? (car bits) 0)
+      (bits->int bits)
+      (* -1 (bits->int (cdr bits)))))
+
+(define (sm-int->bits int) ; int is a signed integer
+  (if (>= int 0)
+      (int->bits-width int 16)
+      (cons 1 (int->bits-width (* -1 int) 15))))
+
 (define empty-ram (make-list 16 0))
 
 (define (do-add address config)
@@ -584,10 +608,10 @@ Steps
                   (sm-int->bits acc-int)
                   empty-ram)]
           ; adjust new-acc-value to be 16 bits
-         [acc-padded (if (< (length acc) 16)
-                                   (append (make-list (- 16 (length acc)) 0) acc)
-                                   acc)]
-         [new-cpu (update 'acc acc-padded (conf-cpu config))]
+         ;[acc-padded (if (< (length acc) 16)
+         ;                          (append (make-list (- 16 (length acc)) 0) acc)
+         ;                          acc)]
+         [new-cpu (update 'acc acc (conf-cpu config))]
          [new-cpu (update 'aeb new-aeb new-cpu)])
     (conf new-cpu (conf-ram config))))
 
@@ -624,16 +648,12 @@ Steps
     
     (conf new-cpu ram)))
 |#
-
+#|
 (define (sm-bits->int bits)
   (if (equal? (car bits) 0)
       (bits->int bits)
       (* -1 (bits->int (cdr bits)))))
-
-(define (sm-int->bits int)
-  (if (>= int 0)
-      (int->bits-width int 16)
-      (cons 1 (int->bits-width (* -1 int) 15))))
+|#
 
 
 (define (drop-right lst n)
@@ -654,6 +674,23 @@ Steps
 |#
 
 (define (do-sub address config)
+  (let* ([acc (lookup-cpu 'acc (conf-cpu config))]
+         [ram-val (ram-read address (conf-ram config))]
+         [acc-int (- (sm-bits->int acc) (sm-bits->int ram-val))]
+         [new-aeb (if (or (> acc-int 32767) (< acc-int -32767)) '(1) '(0))]
+         [acc (if (equal? '(0) new-aeb)
+                  (sm-int->bits acc-int)
+                  empty-ram)]
+          ; adjust new-acc-value to be 16 bits
+         ;[acc-padded (if (< (length acc) 16)
+         ;                          (append (make-list (- 16 (length acc)) 0) acc)
+         ;                          acc)]
+         [new-cpu (update 'acc acc (conf-cpu config))]
+         [new-cpu (update 'aeb new-aeb new-cpu)])
+    (conf new-cpu (conf-ram config))))
+
+
+(define (do-sub2 address config)
   (let* ([acc (lookup-cpu 'acc (conf-cpu config))]
          [ram-val (ram-read address (conf-ram config))]
          [acc-int (- (sm-bits->int acc) (sm-bits->int ram-val))]
@@ -730,11 +767,10 @@ To read in a value, you may use the following
 let construct:
 (let ((value (begin (display "input = ") (read)))) ...)
 |#
-(define (do-input config)
-  (let ((value (begin (display "input = ") (read))))
-    (let ((new-acc-entry (entry 'acc (sm-int->bits (modulo value (expt 2 15))))))
-      (conf (replace-entry 'acc new-acc-entry (conf-cpu config)) (conf-ram config)))))
+(define (do-input config) 
+  (let* ([value (begin (display "input=")(read))])(conf (update 'acc (sm-int->bits value) (conf-cpu config)) (conf-ram config))))
 
+(define (do-output config)(display "output=")(display (sm-bits->int (lookup-cpu 'acc (conf-cpu config))))(newline)config)
 #|
 Each takes a TC-201 configuration and performs the appropriate action 
 (reading a number from the user or writing a number out to the user)
@@ -744,15 +780,25 @@ If the integer value from the accumulator is in
 value-from-accumulator, then the output to the user can be
 produced by: 
 |#
+
+(define (do-output1 config)
+  (let ((value-from-accumulator (bits->int (entry-value (car (filter (lambda (entry) (equal? (entry-key entry) 'acc)) (conf-cpu config)))))))
+    (begin
+      (display "output = ")
+      (display value-from-accumulator)
+      (newline)
+      config)))
+
+#|
 (define (do-output config) 
   (let ((acc-entry (car (filter (lambda (entry) (equal? (entry-key entry) 'acc)) (conf-cpu config)))))
-    (let ((value-from-accumulator (bits->int (entry-value acc-entry))))
+    (let ((value-from-accumulator (sm-bits->int (entry-value acc-entry))))
       (begin
         (display "output = ")
         (display value-from-accumulator)
         (newline)
         config))))
-
+|#
 
 ;************************************************************
 ; ** problem 6 ** (10 points)
@@ -836,7 +882,7 @@ produced by:
          (pc-entry (find-entry-by-key 'pc cpu))
          (acc-value (entry-value acc-entry))
          (pc-value (entry-value pc-entry))
-         (acc-int (bits->int acc-value))
+         (acc-int (bits->int acc-value))                                                                                       ;MODIFIED                                                    
          (increment (if (zero? acc-int) 2 1)) ; Increment by 2 if accumulator is 0, else by 1
          (new-pc-value (int->bits-width (modulo (+ (bits->int pc-value) increment) 4096) 12)) ; Update pc value
          (new-pc-entry (entry 'pc new-pc-value))
@@ -857,7 +903,7 @@ produced by:
          (pc-entry (find-entry-by-key 'pc cpu))
          (acc-value (entry-value acc-entry))
          (pc-value (entry-value pc-entry))
-         (acc-int (bits->int acc-value))
+         (acc-int (bits->int acc-value))                                                                     
          (increment (if (> acc-int 0) 2 1)) ; Increment by 2 if accumulator is positive, else by 1
          (new-pc-value (int->bits-width (modulo (+ (bits->int pc-value) increment) 4096) 12)) ; Update pc value
          (new-pc-entry (entry 'pc new-pc-value))
@@ -1107,7 +1153,6 @@ The result is stored in the accumulator.  All other registers are unaffected.
     (conf (replace-entry 'acc (entry 'acc new-acc-bits) cpu) ram)))
 
 
-; ISSUE HERE
 (define (bitwise-xor bits1 bits2)
   (println bits1)
   (println bits2)
@@ -1668,13 +1713,13 @@ These codes are contained within opcode-table
     (read input 0)
     (skippos 0)
     (jump stop)
-    (xor key) ; XOR key is not functioning properly, length of the accumulator and the other val are not equal for some reason
+    (xor key) 
     (output 0)
     (jump read)
     (stop halt 0)
     (key data 0)))
 
-;(define results (simulate 100 (init-config (assemble encrypt-prog))))
+; (define results (simulate 100 (init-config (assemble encrypt-prog))))
 ; input = 13
 ; input = 8
 ; output = 5
