@@ -1201,194 +1201,39 @@ The result is stored in the accumulator.  All other registers are unaffected.
 
 ;************************************************************
 
-(define (next-config config) 
+; write next-config config that takes a TC-201 configuration and returns the next TC-201 configuration, after one iteration of the fetch/execute cycle. If the run flag (rf) is 0, then the configuration config is returned unchanged, because the machine is halted. The instructions that should be implemented are: halt, load, store, add, sub, input, output, jump skipzero, skippos, skiperr, loadi, storei, shift, and, xor. These are opcodes 0000 through 1111, respectively. For a halt instruction, in the returned configuration the run flag is 0 and all other registers are unchanged. Otherwise, the program counter (pc) contains a memory address, and the TC-201 instruction at that location is fetched and executed, and the resulting configuration is returned. Note that all instructions result in a configuration being returned, even input and output. This example is useful for testing next-config. 
+(define (next-config config)
   (let* ((cpu (conf-cpu config))
          (pc-entry (find-entry-by-key 'pc cpu))
          (pc-value (entry-value pc-entry))
-         (pc-int (sm-bits->int pc-value))
+         (pc-int (bits->int pc-value))
          (instruction (ram-read pc-int (conf-ram config)))
-         (opcode (bits->int (extract 0 3 instruction)))
-         (address (extract 4 15 instruction)))
-    (cond ((= opcode 0) (do-halt config))
-          ((= opcode 1) (do-load address config))
-          ((= opcode 2) (do-store address config))
-          ((= opcode 3) (do-add address config))
-          ((= opcode 4) (do-sub address config))
-          ((= opcode 5) (do-input config))
-          ((= opcode 6) (do-output config))
-          ((= opcode 7) (do-jump address config))
-          ((= opcode 8) (do-skipzero config))
-          ((= opcode 9) (do-skippos config))
-          ((= opcode 10) (do-skiperr config))
-          ((= opcode 11) (do-loadi address config))
-          ((= opcode 12) (do-storei address config))
-          ((= opcode 13) (do-shift address config))
-          ((= opcode 14) (do-and address config))
-          ((= opcode 15) (do-xor address config)))))
+         (opcode (take instruction 4))
+         (address (drop instruction 4))
+         (address-int (bits->int address))
+         (opcode-int (bits->int opcode))
+         ;(increment-pc (not (member opcode-int '(7 8 9 10))))  ; Do not increment PC for jump or skip instructions
+         (new-pc-bits (int->bits-width (+ pc-int 1) 12))  ; Increment PC if not a jump/skip instruction
+         (new-pc-entry (entry 'pc new-pc-bits))
+         (pc-updated-cpu (replace-entry 'pc new-pc-entry cpu)))
 
-(define (do-halt config)
-  (let ((cpu (conf-cpu config)))
-    (conf (replace-entry 'rf (entry 'rf (list 0)) cpu) (conf-ram config))))
-
-#|
-(define (do-load address config)
-  (let* ((ram (conf-ram config))
-         (cpu (conf-cpu config))
-         (acc-entry (find-entry-by-key 'acc cpu))
-         (new-acc-value (ram-read address ram))
-         (new-acc-entry (entry 'acc new-acc-value))
-         (new-cpu (replace-entry 'acc new-acc-entry cpu)))
-    (conf new-cpu ram)))
-
-(define (do-store address config)
-  (let* ((ram (conf-ram config))
-         (cpu (conf-cpu config))
-         (acc-entry (find-entry-by-key 'acc cpu))
-         (acc-value (entry-value acc-entry))
-         (new-ram (ram-write address acc-value ram)))
-    (conf cpu new-ram)))
-
-(define (do-add address config)
-  (let* ((ram (conf-ram config))
-         (cpu (conf-cpu config))
-         (acc-entry (find-entry-by-key 'acc cpu))
-         (acc-value (entry-value acc-entry))
-         (mem-value (ram-read address ram))
-         (new-acc-value (int->bits-width (+ (sm-bits->int acc-value) (sm-bits->int mem-value)) 16))
-         (new-acc-entry (entry 'acc new-acc-value))
-         (new-cpu (replace-entry 'acc new-acc-entry cpu)))
-    (conf new-cpu ram)))
-
-(define (do-sub address config)
-  (let* ((ram (conf-ram config))
-         (cpu (conf-cpu config))
-         (acc-entry (find-entry-by-key 'acc cpu))
-         (acc-value (entry-value acc-entry))
-         (mem-value (ram-read address ram))
-         (new-acc-value (int->bits-width (- (sm-bits->int acc-value) (sm-bits->int mem-value)) 16))
-         (new-acc-entry (entry 'acc new-acc-value))
-         (new-cpu (replace-entry 'acc new-acc-entry cpu)))
-    (conf new-cpu ram)))
-
-(define (do-input config)
-  (let* ((cpu (conf-cpu config))
-         (acc-entry (find-entry-by-key 'acc cpu))
-         (new-acc-value (list (read)))
-         (new-acc-entry (entry 'acc new-acc-value))
-         (new-cpu (replace-entry 'acc new-acc-entry cpu)))
-    (conf new-cpu (conf-ram config))))
-
-(define (do-output config)
-  (let* ((cpu (conf-cpu config))
-         (acc-entry (find-entry-by-key 'acc cpu))
-         (acc-value (entry-value acc-entry)))
-    (display (sm-bits->int acc-value))
-    (newline)
-    config))
-
-(define (do-jump address config)
-  (let* ((cpu (conf-cpu config))
-         (pc-entry (find-entry-by-key 'pc cpu))
-         (new-pc-value (int->bits-width address 12))
-         (new-pc-entry (entry 'pc new-pc-value))
-         (new-cpu (replace-entry 'pc new-pc-entry cpu)))
-    (conf new-cpu (conf-ram config))))
-
-(define (do-skipzero config)
-  (let* ((cpu (conf-cpu config))
-         (acc-entry (find-entry-by-key 'acc cpu))
-         (acc-value (entry-value acc-entry))
-         (acc-int (sm-bits->int acc-value))
-         (pc-entry (find-entry-by-key 'pc cpu))
-         (pc-value (entry-value pc-entry))
-         (increment (if (zero? acc-int) 2 1)) ; Increment by 2 if accumulator is 0, else by 1
-         (new-pc-value (int->bits-width (modulo (+ (sm-bits->int pc-value) increment) 4096) 12)) ; Update pc value
-         (new-pc-entry (entry 'pc new-pc-value))
-         (new-cpu (replace-entry 'pc new-pc-entry cpu))) ; Replace the old pc entry with the new one
-    (conf new-cpu (conf-ram config)))) ; Create the new configuration with updated CPU and unchanged RAM
-
-(define (do-skippos config)
-  (let* ((cpu (conf-cpu config))
-         (acc-entry (find-entry-by-key 'acc cpu))
-         (acc-value (entry-value acc-entry))
-         (acc-int (sm-bits->int acc-value))
-         (pc-entry (find-entry-by-key 'pc cpu))
-         (pc-value (entry-value pc-entry))
-         (increment (if (> acc-int 0) 2 1)) ; Increment by 2 if accumulator is positive, else by 1
-         (new-pc-value (int->bits-width (modulo (+ (sm-bits->int pc-value) increment) 4096) 12)) ; Update pc value
-         (new-pc-entry (entry 'pc new-pc-value))
-         (new-cpu (replace-entry 'pc new-pc-entry cpu))) ; Replace the old pc entry with the new one
-    (conf new-cpu (conf-ram config)))) ; Create the new configuration with updated CPU and unchanged RAM
-
-(define (do-skiperr config)
-  (let* ((cpu (conf-cpu config))
-         (aeb-entry (find-entry-by-key 'aeb cpu))
-         (pc-entry (find-entry-by-key 'pc cpu))
-         (aeb-value (entry-value aeb-entry))
-         (pc-value (entry-value pc-entry))
-         (aeb-int (sm-bits->int aeb-value))
-         (increment (if (= aeb-int 1) 2 1)) ; Increment by 2 if aeb is 1, else by 1
-         (new-pc-value (int->bits-width (modulo (+ (sm-bits->int pc-value) increment) 4096) 12)) ; Update pc value
-         (new-pc-entry (entry 'pc new-pc-value))
-         (new-aeb-entry (entry 'aeb (list 0)))
-         (new-cpu (replace-entry 'pc new-pc-entry (replace-entry 'aeb new-aeb-entry cpu)))) ; Replace the old pc entry with the new one
-    (conf new-cpu (conf-ram config)))) ; Create the new configuration with updated CPU and unchanged RAM
-
-(define (do-loadi address config)
-  (let* ((ram (conf-ram config))
-         (indirect-address-entry (ram-read address ram))  ; Read the memory at the given address
-         (indirect-address (bits->int (extract 4 15 indirect-address-entry)))  ; Extract low-order 12 bits and convert to integer
-         (new-acc-value (ram-read indirect-address ram))  ; Read the value at the indirect address
-         (new-acc-entry (entry 'acc new-acc-value))  ; Create new accumulator entry
-         (new-cpu (replace-entry 'acc new-acc-entry (conf-cpu config))))  ; Replace the accumulator in the CPU configuration
-    (conf new-cpu (conf-ram config))))  ; Return new configuration
+    (cond ((= opcode-int 0) (conf (update 'rf '(0) (conf-cpu config)) (conf-ram config)))
+          ((= opcode-int 1) (do-load address-int  (conf pc-updated-cpu (conf-ram config))))
+          ((= opcode-int 2) (do-store address-int (conf pc-updated-cpu (conf-ram config))))
+          ((= opcode-int 3) (do-add address-int (conf pc-updated-cpu (conf-ram config))))
+          ((= opcode-int 4) (do-sub address-int (conf pc-updated-cpu (conf-ram config))))
+          ((= opcode-int 5) (do-input (conf pc-updated-cpu (conf-ram config))))
+          ((= opcode-int 6) (do-output (conf pc-updated-cpu (conf-ram config))))
+          ((= opcode-int 7) (do-jump address-int (conf cpu (conf-ram config))))  ; do-jump handles PC
+          ((= opcode-int 8) (do-skipzero (conf cpu (conf-ram config))))  ; do-skipzero handles PC
+          ((= opcode-int 9) (do-skippos (conf cpu (conf-ram config))))  ; do-skippos handles PC
+          ((= opcode-int 10) (do-skiperr (conf cpu (conf-ram config))))  ; do-skiperr handles PC
+          ((= opcode-int 11) (do-loadi address-int (conf pc-updated-cpu (conf-ram config))))
+          ((= opcode-int 12) (do-storei address-int (conf pc-updated-cpu (conf-ram config))))
+          ((= opcode-int 13) (do-shift address-int (conf pc-updated-cpu (conf-ram config))))
+          ((= opcode-int 14) (do-and address-int (conf pc-updated-cpu (conf-ram config))))
+          ((= opcode-int 15) (do-xor address-int (conf pc-updated-cpu (conf-ram config)))))))
   
-(define (do-storei address config)
-  (let* ((ram (conf-ram config))
-         (cpu (conf-cpu config))
-         (acc-entry (find-entry-by-key 'acc cpu))
-         (acc-value (entry-value acc-entry))  ; Get the accumulator value
-         (indirect-address-entry (ram-read address ram))  ; Read the memory at the given address
-         (indirect-address (bits->int (extract 4 15 indirect-address-entry)))  ; Extract low-order 12 bits and convert to integer
-         (new-ram (ram-write indirect-address acc-value ram)))  ; Write the accumulator value to the indirect address in RAM
-    (conf (conf-cpu config) new-ram)))  ; Return new configuration with updated RAM
-  
-(define (do-shift address config)
-  (let* ((ram (conf-ram config))
-         (shift-amount-bits (ram-read address ram))  ; Get shift amount in bits
-         (shift-amount (bits->int shift-amount-bits))  ; Convert to integer
-         (cpu (conf-cpu config))
-         (acc-entry (find-entry-by-key 'acc cpu))
-         (acc-bits (entry-value acc-entry)))  ; Get accumulator bits
-
-    ;; Determine shift direction and perform the shift
-    (let ((new-acc-bits (if (>= shift-amount 0)
-                            (circular-left-shift acc-bits shift-amount)
-                            (circular-right-shift acc-bits (- shift-amount)))))
-      ;; Update and return the configuration
-      (conf (replace-entry 'acc (entry 'acc new-acc-bits) cpu) ram))))
-
-(define (do-and address config)
-  (let* ((ram (conf-ram config))
-         (cpu (conf-cpu config))
-         (acc-entry (find-entry-by-key 'acc cpu))
-         (acc-bits (entry-value acc-entry))  ; Current accumulator bits
-         (mem-value (ram-read address ram))
-         (new-acc-bits (bitwise-and acc-bits mem-value)))  ; Perform bitwise AND
-    ;; Update the configuration
-    (conf (replace-entry 'acc (entry 'acc new-acc-bits) cpu) ram)))
-
-(define (do-xor address config)
-  (let* ((ram (conf-ram config))
-         (cpu (conf-cpu config))
-         (acc-entry (find-entry-by-key 'acc cpu))
-         (acc-bits (entry-value acc-entry))  ; Current accumulator bits
-         (mem-value (ram-read address ram))
-         (new-acc-bits (bitwise-xor acc-bits mem-value)))  ; Perform bitwise XOR
-    ;; Update the configuration
-    (conf (replace-entry 'acc (entry 'acc new-acc-bits) cpu) ram)))
-|#
-
 
 
 ;************************************************************
@@ -1539,20 +1384,22 @@ The result is stored in the accumulator.  All other registers are unaffected.
 
 ; initial configuration construction
 
+; takes a list lst of 16 bit patterns, and returns a TC-201 configuration in which those patterns are loaded into RAM starting with address 0, and the CPU registers are initialized so that the accumulator has value +0, the program counter has address 0, the run flag has value 1, and the arithmetic error bit has value 0.
 (define (init-config lst)
-  empty)
+  (let* ((ram lst)  ; Load the list of 16-bit patterns into RAM.
+         (acc (make-list 16 0))  ; Initialize accumulator with +0.
+         (pc (make-list 12 0))  ; Initialize program counter with address 0.
+         (rf '(1))  ; Set the run flag to 1.
+         (aeb '(0)))  ; Set the arithmetic error bit to 0.
 
-; symbol table construction
-
-(define (symbol-table prog)
-  empty)
-
-; assemble program
-
-(define (assemble prog)
-  empty)
- 
-; table of symbolic opcodes
+    ;; Create the CPU configuration.
+    (let ((cpu (list (entry 'acc acc)
+                     (entry 'pc pc)
+                     (entry 'rf rf)
+                     (entry 'aeb aeb))))
+      ;; Return the complete configuration.
+      (conf cpu ram)))
+)
 
 (define opcode-table
   (list
@@ -1572,6 +1419,93 @@ The result is stored in the accumulator.  All other registers are unaffected.
    (entry 'shift '(1 1 0 1))
    (entry 'and '(1 1 1 0))
    (entry 'xor '(1 1 1 1))))
+
+#|
+(symbol-table prog)
+takes a TC-201 assembly language program prog (in the format specified below) 
+and returns a table of entries in which the key is a symbol that is a label 
+in prog and the value is the corresponding memory address for that
+instruction or data value (when the program is loaded into memory starting 
+at address 0.)
+
+(define prog3
+  '((start  load constant-zero)
+   (        store sum)
+   (next    input 0)
+   (        skipzero 0)
+   (        jump add-num)
+   (        load sum)
+   (        output 0)
+   (        halt 0)
+   (add-num add sum)
+   (        store sum)
+   (        jump next)
+   (sum     data 0)
+   (constant-zero data 0)))
+
+Steps 
+1. Filter out the labels
+2. Create a list of entries for each label
+3. Sort entries by address
+|#
+; Extracts labels from the program and their corresponding addresses
+(define (extract-labels-and-addresses prog)
+  (let loop ((prog prog) (address 0) (labels '()))
+    (if (null? prog)
+        labels
+        (let ((line (car prog)))
+          (if (= (length line) 3) ; Line contains a label
+              (loop (cdr prog) (+ 1 address) (cons (entry (car line) address) labels))
+              (loop (cdr prog) (+ 1 address) labels))))))
+
+; Constructs the symbol table
+(define (symbol-table prog)
+  (reverse (extract-labels-and-addresses prog)))
+
+
+#|
+; assemble program
+; translates a TC-201 assembly language program prog 
+into a list of 16-bit patterns to be loaded into the TC-201 memory. 
+The symbolic opcodes are: halt, load, store, add, sub, input, output jump, s
+kipzero, skippos, skiperr, loadi, storei, shift, and, xor. 
+These codes are contained within opcode-table
+;> (symbol-table prog2)
+;(list (entry 'x 0) (entry 'y 1) (entry 'z 2))
+
+;> (assemble prog2)
+;'((0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1)
+;  (1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0)
+;  (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1))
+|#
+
+; Helper function to find the bit representation of an opcode
+(define (opcode-to-bits opcode)
+  (define (search-opcode-table table opcode)
+    (cond
+      [(null? table) (error "could not find opcode")] ; If end of table, opcode not found
+      [(equal? opcode (entry-key (car table))) (entry-value (car table))] ; If found, return value
+      [else (search-opcode-table (cdr table) opcode)])) ; Otherwise, keep searching
+  (search-opcode-table opcode-table opcode)) ; Start searching
+
+; Helper function to convert an address or data value to its binary representation
+(define (value-to-bits value width)
+  (int->bits-width value width))
+
+; Main assembly function
+(define (assemble prog)
+  (let ((symbols (symbol-table prog))) ; Generate the symbol table
+    (map (lambda (line)
+           (let ((opcode (if (= (length line) 3) (cadr line) (car line)))
+                 (value (if (= (length line) 3) (caddr line) (cadr line))))
+             (let ([opcode-bits (opcode-to-bits opcode)]
+                   [value-bits (if (number? value)
+                                   (value-to-bits value 12)
+                                   (value-to-bits (entry-value (assoc value symbols)) 12))])
+               (append opcode-bits value-bits))))
+         prog)))
+
+ 
 
 ;************************************************************
 ; ** problem 11 ** (10 points)
@@ -1911,7 +1845,6 @@ The result is stored in the accumulator.  All other registers are unaffected.
  '((acc (0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1) (0 1 0 1 0 1 0 1 0 1 0 1 1 0 1 0))))
 
 
-#|
 (test 'next-config (next-config config-ex4)
  (conf
   (list
@@ -1924,6 +1857,7 @@ The result is stored in the accumulator.  All other registers are unaffected.
     (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
     (0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1)
     (1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0))))
+
 
 (test 'next-config (next-config (next-config config-ex4))
  (conf
@@ -1952,7 +1886,6 @@ The result is stored in the accumulator.  All other registers are unaffected.
     (0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1))))
 
 
-
 (test 'init-config (init-config ram-ex2)
  (conf
   (list (entry 'acc '(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)) 
@@ -1963,6 +1896,7 @@ The result is stored in the accumulator.  All other registers are unaffected.
     (0 0 1 0 0 0 0 0 0 0 0 0 0 1 0 1)
     (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
     (0 0 0 0 0 0 0 0 0 0 1 0 0 1 0 0))))
+
 
 (test 'symbol-table (symbol-table prog1)
  '())
@@ -1977,6 +1911,8 @@ The result is stored in the accumulator.  All other registers are unaffected.
   (entry 'add-num 8)
   (entry 'sum 11)
   (entry 'constant-zero 12)))
+
+
 
 (test 'assemble (assemble prog1)
  '((0 0 0 1 0 0 0 0 0 0 0 0 0 0 1 1)
@@ -2003,6 +1939,9 @@ The result is stored in the accumulator.  All other registers are unaffected.
    (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
    (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
 
+#|
+
+  
 (test 'simulate (simulate 5 config-ex4)
  (list
   (conf
@@ -2049,7 +1988,7 @@ The result is stored in the accumulator.  All other registers are unaffected.
      (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
      (0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1)
      (0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1)))))
-
 |#
+
 
 ;********************** end of hw6.rkt **********************
