@@ -16,6 +16,9 @@
          simulate encrypt-prog reverse-prog
 	 power-prog)
 
+
+(require racket/trace)
+
 ;************************************************************
 ; CS 201 HW #6  DUE Monday November 13th at 11:59 pm, 
 ; via the submit system on the Zoo.
@@ -256,19 +259,13 @@ hello world
   (convert rnum)
 )
 
-(define (dec2bin n)
-  (define result empty)
-  (define (convert x)
-    (cond [(equal? x 0) result]
-          [(equal? (modulo x 2) 1) result (append '(1) (convert(truncate (/ (- x 1) 2))))]
-          [(equal? (modulo x 2) 0) append result (append '(0) (convert(truncate (/ x 2))))]
-          [else (result)]
-          )
-    )
-  (if (equal? (reverse (convert n)) empty)
-      '(0)
-      (reverse (convert n)))
-  )
+(define (dec2bin num)
+  (cond
+    [(= num 0) '(0)]   
+    [(= num 1) '(1)]  
+    [else (append (dec2bin (quotient num 2))
+                  (list (remainder num 2)))]))  ; Append the remainder as a new element to the list
+
 
 (define (extract i j lst)
   (take (drop lst i) (+ 1 (- j i))))
@@ -630,13 +627,14 @@ Steps
 
 (define (sm-bits->int bits)
   (if (equal? (car bits) 0)
-      (bits->int (cdr bits))
-      (- (bits->int (cdr bits)))))
+      (bits->int bits)
+      (* -1 (bits->int (cdr bits)))))
 
-(define (sm-int->bits n)
-  (if (>= n 0)
-      (append '(0) (int->bits n))
-      (append '(1) (int->bits (- n)))))
+(define (sm-int->bits int)
+  (if (>= int 0)
+      (int->bits-width int 16)
+      (cons 1 (int->bits-width (* -1 int) 15))))
+
 
 (define (drop-right lst n)
   (take lst (- (length lst) n)))
@@ -748,7 +746,7 @@ produced by:
 |#
 (define (do-output config) 
   (let ((acc-entry (car (filter (lambda (entry) (equal? (entry-key entry) 'acc)) (conf-cpu config)))))
-    (let ((value-from-accumulator (sm-bits->int (entry-value acc-entry))))
+    (let ((value-from-accumulator (bits->int (entry-value acc-entry))))
       (begin
         (display "output = ")
         (display value-from-accumulator)
@@ -1108,7 +1106,12 @@ The result is stored in the accumulator.  All other registers are unaffected.
     ;; Update the configuration
     (conf (replace-entry 'acc (entry 'acc new-acc-bits) cpu) ram)))
 
+
+; ISSUE HERE
 (define (bitwise-xor bits1 bits2)
+  (println bits1)
+  (println bits2)
+ 
   (map (lambda (bit1 bit2) (if (= bit1 bit2) 0 1)) bits1 bits2))
 
 
@@ -1492,20 +1495,50 @@ These codes are contained within opcode-table
 (define (value-to-bits value width)
   (int->bits-width value width))
 
+
+#|
+; assemble program
+; translates a TC-201 assembly language program prog 
+into a list of 16-bit patterns to be loaded into the TC-201 memory. 
+The symbolic opcodes are: halt, load, store, add, sub, input, output jump, s
+kipzero, skippos, skiperr, loadi, storei, shift, and, xor. 
+These codes are contained within opcode-table
+;> (symbol-table prog2)
+;(list (entry 'x 0) (entry 'y 1) (entry 'z 2))
+
+;> (assemble prog2)
+;'((0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1)
+;  (1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0)
+;  (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1))
+|#
 ; Main assembly function
 (define (assemble prog)
-  (let ((symbols (symbol-table prog))) ; Generate the symbol table
-    (map (lambda (line)
-           (let ((opcode (if (= (length line) 3) (cadr line) (car line)))
-                 (value (if (= (length line) 3) (caddr line) (cadr line))))
-             (let ([opcode-bits (opcode-to-bits opcode)]
-                   [value-bits (if (number? value)
-                                   (value-to-bits value 12)
-                                   (value-to-bits (entry-value (assoc value symbols)) 12))])
-               (append opcode-bits value-bits))))
-         prog)))
+  (let* ([st (symbol-table prog)])
+    (map (lambda (x) (assemble-one x st)) prog)))
 
- 
+(define (assemble-one prog-line st)
+  (let* ([op-name (if (equal? 3 (length prog-line))
+                      (cadr prog-line)
+                      (car prog-line))]
+         [opcode (if (equal? op-name 'data)
+                     '(0 0 0 0)
+                     (lookup-gen op-name opcode-table))]
+         [address (last prog-line)]
+         [address (if (number? address)
+                      address
+                      (lookup-gen address st))]
+         [address-instr (int->bits-width address 12)]
+         [address-data (sm-int->bits address)])
+
+    (if (equal? op-name 'data)
+        (flatten (append (list (car address-data)) (append (make-list (- 16 (length address-data)) 0) (list (cdr address-data))))) ; SO SKETCHY WTF
+        (append opcode address-instr))))
+
+(define (lookup-gen key table)
+  (cond
+    [(null? table) 'none] ; If end of table, opcode not found
+    [(equal? key (entry-key (car table))) (entry-value (car table))] ; If found, return value
+    [else (lookup-gen key (cdr table))])) ; Otherwise, keep searching
 
 ;************************************************************
 ; ** problem 11 ** (10 points)
@@ -1615,10 +1648,55 @@ These codes are contained within opcode-table
 ;************************************************************
 
 (define (simulate n config)
-  empty)
+  (let loop ((current-config config) 
+             (iterations n) 
+             (configs (list config)))  ; Start with initial config in the list
+    (if (or (zero? iterations)                    ; Stop if no iterations left
+            (equal? '(0) (entry-value (find-entry-by-key 'rf (conf-cpu current-config)))))  ; or if run flag is 0
+        (reverse configs)  ; Return the list of configurations
+        (let ((next-config (next-config current-config)))  ; Get the next configuration
+          (loop next-config (sub1 iterations) (cons next-config configs))))))  ; Recurse with updated values
 
+
+; WORKING WORKING
+
+;here, we read a value, store it as the key, read a new value, if it's positive we calculate the xor in the accumulator and return it.
+;then loop back for more input, if the value was non-positive then we halt
 (define encrypt-prog
-  empty)
+  '((input 0)
+    (store key)
+    (read input 0)
+    (skippos 0)
+    (jump stop)
+    (xor key) ; XOR key is not functioning properly, length of the accumulator and the other val are not equal for some reason
+    (output 0)
+    (jump read)
+    (stop halt 0)
+    (key data 0)))
+
+;(define results (simulate 100 (init-config (assemble encrypt-prog))))
+; input = 13
+; input = 8
+; output = 5
+; input = 15
+; output = 2
+; input = 2
+; output = 15
+; input = 5
+; output = 8
+; input = 0
+
+;(define results (simulate 100 (init-config (assemble encrypt-prog))))
+; input = 511
+; input = 78
+; output = 433
+; input = 999
+; output = 536
+; input = 536
+; output = 999
+; input = 433
+; output = 78
+; input = 0
 
 ;************************************************************
 ; ** problem 12 ** (5 points)
@@ -1647,8 +1725,48 @@ These codes are contained within opcode-table
 ;output = 13
 ;************************************************************
 
+;read the pointer value, output the stored values, and check until we reach the starting position -< OLD, OUTPUT is not returning in negative it is returning in terms of 37350284
+
+; NOT WORKING
 (define reverse-prog
-  empty)
+  '((read-num input 0)
+    (skipzero 0)
+    (jump store-num)
+    (loop load pointer)
+    (sub constant-pos)
+    (skipzero 0)
+    (jump print)
+    (halt 0)
+    (print add constant-pos)
+    (sub constant-one)
+    (store pointer)
+    (loadi pointer)
+    (output 0)
+    (jump loop)
+    (halt 0) 
+    (store-num storei pointer)
+    (load pointer)
+    (add constant-one)
+    (store pointer)
+    (jump read-num)
+    (pointer data table)
+    (constant-one data 1)
+    (constant-pos data 23)
+    (table data 0)))
+
+
+(define results (simulate 100 (init-config (assemble reverse-prog))))
+;input = 13
+;input = -44
+;input = 16
+;input = 0
+;output = 16
+;output = -44
+;output = 13
+
+
+
+
 
 ; ********************************************************
 ; ** problem 13 ** (5 points)
@@ -1673,7 +1791,54 @@ These codes are contained within opcode-table
 ; output = 120
 
 (define power-prog
-  empty)
+  '[(read-num input 0) ; Read the integer
+   (store 0) ; Store the integer at memory location 0
+   (input) ; Read the exponent
+   (store 1) ; Store the exponent at memory location 1
+
+   ; Initialize the result to the integer value (since 2^0 times integer is the integer itself)
+   (load 0)
+   (store 2) ; Store the initial result at memory location 2
+
+   ; Prepare the shift value (1 for left shift)
+   (loadi 1) ; Load the immediate value 1
+   (store 3) ; Store it at memory location 3 for shifting
+
+   ; Check if exponent is zero; if yes, skip the multiplication part
+   (load 1)
+   (skipzero 5) ; Skip next five instructions if exponent is zero
+
+   ; Loop for calculating integer * 2^exponent
+   (label loop-start)
+   (load 1)
+   (sub 1) ; Decrement exponent
+   (store 1)
+   (skipzero 4) ; If exponent is now zero, skip the loop
+   (load 2)
+   (shift 3) ; Double the result by shifting left (using value at memory location 3)
+   (store 2)
+   (jump loop-start)
+   (label end-loop)
+
+   ; Output the final result
+   (load 2)
+   (output)
+
+   (halt) ; End of program
+  ])
+
+; > (define results (simulate 100 (init-config (assemble power-prog))))
+; input = 20 
+; input = -2
+; output = 5
+; > (define results (simulate 100 (init-config (assemble power-prog))))
+; input = 15
+; input = 3
+; output = 120
+
+
+
+
 
 ; ********************************************************
 ; ********  testing, testing. 1, 2, 3 ....
@@ -1912,8 +2077,6 @@ These codes are contained within opcode-table
   (entry 'sum 11)
   (entry 'constant-zero 12)))
 
-
-
 (test 'assemble (assemble prog1)
  '((0 0 0 1 0 0 0 0 0 0 0 0 0 0 1 1)
    (0 0 1 0 0 0 0 0 0 0 0 0 0 1 0 0)
@@ -1938,8 +2101,6 @@ These codes are contained within opcode-table
    (0 1 1 1 0 0 0 0 0 0 0 0 0 0 1 0)
    (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
    (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
-
-#|
 
   
 (test 'simulate (simulate 5 config-ex4)
@@ -1966,6 +2127,7 @@ These codes are contained within opcode-table
      (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
      (0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1)
      (1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0)))
+  
   (conf
    (list
     (entry 'acc '(0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1))
@@ -1988,7 +2150,9 @@ These codes are contained within opcode-table
      (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
      (0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1)
      (0 0 0 0 0 0 0 0 0 0 0 1 0 1 0 1)))))
-|#
+
+
+
 
 
 ;********************** end of hw6.rkt **********************
