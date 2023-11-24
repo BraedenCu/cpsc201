@@ -412,7 +412,7 @@ hello world
   The order should be CPU registers first (in order: acc, pc, rf, aeb) 
   and then memory registers in increasing order of addresses.
 |#
-; used frequently throughout te program for finding entries by keys, is generalized
+; used frequently throughout te program for finding entries by keys, is generalized to work for any key
 (define (find-entry-by-key key cpu)
   (cond
     [(empty? cpu) #f]
@@ -428,7 +428,7 @@ hello world
     (filter (lambda (entry) ; filte rout by empty lists
               (not (null? entry))) 
             (append
-             (for/list ([entry cpu1]) ; iterate over cpu1, for/list is fantastic 
+             (for/list ([entry cpu1]) ; iterate over cpu1, for/list is fantastic :D
                (let* ((key (entry-key entry)) ; get key
                       (value1 (entry-value entry))
                       (entry2 (find-entry-by-key key cpu2))
@@ -440,12 +440,6 @@ hello world
                      empty)))
              (diff-rams ram1 ram2))))) ; add the diff-rams to the list
 
-#|
-; takes a nonnegative integer n and a TC-201 configuration config
-; and returns the TC-201 configuration that is obtained by adding n 
-; to the value of pc.  Note that the sum should be taken modulo 4096.  
-; (Racket has a modulo procedure.)
-|#
 
 (define (incr-pc n config)
   (let* ((cpu (conf-cpu config))
@@ -470,13 +464,7 @@ hello world
     [(equal? (entry-key (car cpu)) key) (cdr cpu)]
     [else (cons (car cpu) (remove-entry key (cdr cpu)))]))
 
-#|
-  ; (do-load address config)
-; takes a memory address and a TC-201 configuration, and returns the TC-201 
-; configuration that is obtained by copying the contents
-; of the given memory address into the accumulator.
-; The values of all other registers (including the pc) are unchanged.
-|#
+
 (define (do-load address config)
   (let* ((ram (conf-ram config))
          (acc-entry (car (filter (lambda (entry) (equal? (entry-key entry) 'acc)) (conf-cpu config)))) ; get acc entry
@@ -484,13 +472,6 @@ hello world
          (new-cpu (replace-entry 'acc new-acc-entry (conf-cpu config))))
     (conf new-cpu ram)))
 
-#|
-; (do-store address config)
-; takes a memory address and a TC-201 configuration, and returns the TC-201 
-; configuration that is obtained by copying the contents of the accumulator 
-; into the given memory address.
-; The values of all other registers (including the pc) are unchanged.
-|#
 (define (do-store address config)
   (let* ((ram (conf-ram config))
          (acc-entry (car (filter (lambda (entry) (equal? (entry-key entry) 'acc)) (conf-cpu config)))) ; get acc entry
@@ -626,18 +607,6 @@ Steps
 (define (drop-right lst n)
   (take lst (- (length lst) n))) ; drop the right n elements
 
-#|
- (do-sub address config) is similar, except that the
- contents of the memory register addressed has
- been subtracted from the contents of the accumulator.
-
-Steps
-1. Read memory values
-2. Get accumulator value
-3. Perform binary subtraction
-4. Calculate the arithmetic error bit
-5. update-cpu the configuration
-|#
 
 (define (do-sub address config)
   (let* ([acc (lookup-cpu 'acc (conf-cpu config))]
@@ -702,12 +671,6 @@ Steps
 
 ;************************************************************
 #| 
-Each takes a TC-201 configuration and performs the appropriate action 
-(reading a number from the user or writing a number out to the user)
-and *returns* the resulting TC-201 configuration.
-
-For input, the new configuration has the value read in the 
-accumulator, and all other registers unchanged.
 To read in a value, you may use the following
 let construct:
 (let ((value (begin (display "input = ") (read)))) ...)
@@ -717,14 +680,6 @@ let construct:
     (conf (update-cpu 'acc (signed-int->bits value) (conf-cpu config)) (conf-ram config)))) ; update-cpu the cpu with new acc value
 
 #|
-Each takes a TC-201 configuration and performs the appropriate action 
-(reading a number from the user or writing a number out to the user)
-and *returns* the resulting TC-201 configuration.
-For output, the new configuration is returned *unchanged*.
-If the integer value from the accumulator is in
-value-from-accumulator, then the output to the user can be
-produced by: 
-
     ; (display "output = ")
     ; (display value-from-accumulator)
     ; (newline)
@@ -791,12 +746,6 @@ produced by:
 
 ;************************************************************
 
-#|
-  takes a memory address and a TC-201 configuration, and
-  returns a TC-201 configuration in which the program counter
-  (pc) is set to the given address.  All other registers are
-  unaffected.
-|#
 (define (do-jump address config)
   (let* ((cpu (conf-cpu config))
          (pc-entry (find-entry-by-key 'pc cpu)) 
@@ -805,13 +754,7 @@ produced by:
          (new-cpu (replace-entry 'pc new-pc-entry cpu))) 
     (conf new-cpu (conf-ram config)))) ; crete new config with changed cpu and unchanged ram
 
-#|
-  takes a TC-201 configuration config and returns
-  a TC-201 configuration in which the program counter (pc)
-  is increased by 2 if the accumulator contains +0 or -0,
-  and is increased by 1 otherwise.  All registers other than
-  the pc are unaffected.
-|#
+
 (define (do-skipzero config)
   (let* ((cpu (conf-cpu config))
          (acc-entry (find-entry-by-key 'acc cpu))
@@ -826,13 +769,7 @@ produced by:
     (conf new-cpu (conf-ram config)))) ; create new config with changed cpu and unchanged ram
 
 
-#|
-  takes a TC-201 configuration config and returns
-  a TC-201 configuration in which the program counter (pc)
-  is increased by 2 if the accumulator contains a nonzero
-  positive number, and is increased by 1 otherwise.  
-  All registers other than the pc are unaffected.
-|#
+
 (define (do-skippos config) 
   (let* ((cpu (conf-cpu config))
          (acc-entry (find-entry-by-key 'acc cpu))
@@ -846,15 +783,7 @@ produced by:
          (new-cpu (replace-entry 'pc new-pc-entry cpu))) ; replace the old pc entry with the new one
     (conf new-cpu (conf-ram config)))) ; create new config with changed cpu and unchanged ram
 
-#|
-  takes a TC-201 configuration config and returns
-  a TC-201 configuration in which the program counter (pc)
-  is increased by 2 if the arithmetic error bit contains 1
-  and is increased by 1 if the arithmetic error bit contains 0.
-  In either case, in the new configuration, the arithmetic
-  error bit is set to 0.
-  All registers other than the pc and the aeb are unaffected.
-|#
+
 (define (do-skiperr config) 
   (let* ((cpu (conf-cpu config))
          (aeb-entry (find-entry-by-key 'aeb cpu))
@@ -940,15 +869,7 @@ produced by:
 ;'((acc (0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1) (0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1)))
 ;************************************************************
 
-#|
-  takes a memory address and a TC-201 configuration and returns a TC-201 
-  configuration that reflects the result of doing a "load indirect" from the
-  given memory address to the accumulator.
-  That is, the low-order 12 bits of the contents of the memory register 
-  addressed by address are extracted and used as the memory address
-  from which the contents are loaded into the accumulator.
-  All other registers are unaffected.
-|#  
+
 (define (do-loadi address config) 
   (let* ((ram (conf-ram config))
          (indirect-address-entry (ram-read address ram))  
@@ -958,15 +879,7 @@ produced by:
          (new-cpu (replace-entry 'acc new-acc-entry (conf-cpu config))))  ; replace the old acc entry with the new one
     (conf new-cpu ram)))  
 
-#|
-  takes a memory address and a TC-201 configuration and returns a TC-201 
-  configuration that reflects the result of doing a "store indirect" to the
-  given memory address from the accumulator.
-  That is, the low-order 12 bits of the contents of the memory register 
-  addressed by address are extracted and used as the memory address
-  to which the contents of the accumulator are copied.
-  All other registers are unaffected. 
-|#
+
 (define (do-storei address config)
   (let* ((ram (conf-ram config))
          (acc-entry (find-entry-by-key 'acc (conf-cpu config)))
@@ -977,13 +890,6 @@ produced by:
     (conf (conf-cpu config) new-ram)))  
 
 
-#|
-  takes a memory address and a TC-201 configuration and returns a TC-201 
-  configuration that reflects the result of doing a shift of accumulator, acc,
-  left or right by the number of bits given in the specified memory address.
-  A positive number shifts the accumulator to the left.
-  A negative number shifts the accumulator to the right.
-|#
 
 (define (do-shift address config)
   (let* ((ram (conf-ram config))
@@ -1052,11 +958,7 @@ produced by:
 ; '((acc (0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1) (0 1 0 1 0 1 0 1 0 1 0 1 1 0 1 0)))
 ;************************************************************
 
-#|
-takes a memory address and a TC-201 configuration and returns a TC-201 configuration that 
-refleccts the result of doing and of the contents of the given memory address and the accumulator.
-The result is stored in the accumulator.  All other registers are unaffected.
-|#
+
 (define (do-and address config)
   (let* ((ram (conf-ram config))
          (mem-value (ram-read address ram)) 
@@ -1070,11 +972,7 @@ The result is stored in the accumulator.  All other registers are unaffected.
 (define (bitwise-and bits1 bits2)
   (map (lambda (bit1 bit2) (if (and (= bit1 1) (= bit2 1)) 1 0)) bits1 bits2)) ; if both bits are 1, then 1, else 0
   
-#| 
-takes a memory address and a TC-201 configuration and returns a TC-201 configuration that
-refleccts the result of doing an exclusive or of the contents of the given memory address and the accumulator.
-The result is stored in the accumulator.  All other registers are unaffected.
-|#
+
 (define (do-xor address config)
   (let* ((ram (conf-ram config))
          (mem-value (ram-read address ram))  
@@ -1457,23 +1355,6 @@ These codes are contained within opcode-table
 ;  (1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0)
 ;  (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1))
 |#
-
-
-#|
-; assemble program
-; translates a TC-201 assembly language program prog 
-into a list of 16-bit patterns to be loaded into the TC-201 memory. 
-The symbolic opcodes are: halt, load, store, add, sub, input, output jump, s
-kipzero, skippos, skiperr, loadi, storei, shift, and, xor. 
-These codes are contained within opcode-table
-;> (symbol-table prog2)
-;(list (entry 'x 0) (entry 'y 1) (entry 'z 2))
-
-;> (assemble prog2)
-;'((0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1)
-;  (1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0)
-;  (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1))
-|#
 ; assembly program OF NOTE OF NOTE OF NOTE
 (define (assemble prog)
   (let* ([symboltable (symbol-table prog)])
@@ -1637,7 +1518,7 @@ These codes are contained within opcode-table
     ))
 
 
-(define results (simulate 100 (init-config (assemble encrypt-prog))))
+;(define results (simulate 100 (init-config (assemble encrypt-prog))))
 ; input = 13
 ; input = 8
 ; output = 5
