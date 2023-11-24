@@ -265,8 +265,8 @@ hello world
     [else (append (dec2bin (quotient num 2))
                   (list (remainder num 2)))])) 
 
-
-(define (extract i j lst)
+; extract i through j from lst, very useful later down the road
+(define (extract i j lst) 
   (take (drop lst i) (+ 1 (- j i))))
 
 (define (bits->int lst)
@@ -724,6 +724,10 @@ For output, the new configuration is returned *unchanged*.
 If the integer value from the accumulator is in
 value-from-accumulator, then the output to the user can be
 produced by: 
+
+    ; (display "output = ")
+    ; (display value-from-accumulator)
+    ; (newline)
 |#
 (define (do-output config)
   (display "output=")
@@ -1469,35 +1473,32 @@ These codes are contained within opcode-table
 ;  (1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0)
 ;  (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1))
 |#
-; assembly program
+; assembly program OF NOTE OF NOTE OF NOTE
 (define (assemble prog)
   (let* ([symboltable (symbol-table prog)])
-    (map (lambda (x) (assemble-one x symboltable)) prog)))
+    (map (lambda (prog-line)
+            ; if line has 3 elements, then it has a label
+            (let* ([op-name (if (equal? 3 (length prog-line)) (cadr prog-line) (car prog-line))]
+                  [opcode (if (equal? op-name 'data) ; deal with data label separately
+                              '(0 0 0 0)
+                              (lookup-gen op-name opcode-table))] ; lookup opcode in opcode-table
+                  [address (last prog-line)]
+                  [address (if (number? address) ; if address is a number, then it is a data value
+                               address
+                               (lookup-gen address symboltable))]
+                  [address-instr (int->bits-width address 12)]
+                  [address-data (signed-int->bits address)])
+              ; again, we gotta deal with data separately
+              (if (equal? op-name 'data)
+                  (flatten (append (list (car address-data)) (append (make-list (- 16 (length address-data)) 0) (list (cdr address-data))))) ; SO SKETCHY BUT WORKS IG
+                  (append opcode address-instr))))
+         prog)))
 
-(define (assemble-one prog-line st)
-  (let* ([op-name (if (equal? 3 (length prog-line)) ; if line has 3 elements, then it has a label
-                      (cadr prog-line)
-                      (car prog-line))]
-         [opcode (if (equal? op-name 'data) ; deal with data label separately
-                     '(0 0 0 0)
-                     (lookup-gen op-name opcode-table))] ; lookup opcode in opcode-table
-         [address (last prog-line)]
-         [address (if (number? address) ; if address is a number, then it is a data value
-                      address
-                      (lookup-gen address st))]
-         [address-instr (int->bits-width address 12)]
-         [address-data (signed-int->bits address)])
-
-    (if (equal? op-name 'data)
-        (flatten (append (list (car address-data)) (append (make-list (- 16 (length address-data)) 0) (list (cdr address-data))))) ; SO SKETCHY BUT WORKS IG
-        (append opcode address-instr))))
-
-; lookup opcode in opcode-table
-(define (lookup-gen key table)
+(define (lookup-gen key table) ; general lookup function
   (cond
-    [(null? table) 'none] ; If end of table, opcode not found
-    [(equal? key (entry-key (car table))) (entry-value (car table))] ; If found, return value
-    [else (lookup-gen key (cdr table))])) ; Otherwise, keep searching
+    [(null? table) 'none] ; no opcode found
+    [(equal? key (entry-key (car table))) (entry-value (car table))] ; if opcode is found return that opcode
+    [else (lookup-gen key (cdr table))])) ; keep searching if its not found
 
 ;************************************************************
 ; ** problem 11 ** (10 points)
