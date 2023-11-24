@@ -1596,31 +1596,6 @@ These codes are contained within opcode-table
 ; with user.  We "capture" the returned list of configurations 
 ; by assigning it to be the value of the symbol results.
 
-;; below the key is 13 (1101).  Note that encrypt is also decrypt.
-; > (define results (simulate 100 (init-config (assemble encrypt-prog))))
-; input = 13
-; input = 8
-; output = 5
-; input = 15
-; output = 2
-; input = 2
-; output = 15
-; input = 5
-; output = 8
-; input = 0
-
-; > (define results (simulate 100 (init-config (assemble encrypt-prog))))
-; input = 511
-; input = 78
-; output = 433
-; input = 999
-; output = 536
-; input = 536
-; output = 999
-; input = 433
-; output = 78
-; input = 0
-
 
 ;************************************************************
 
@@ -1635,9 +1610,22 @@ These codes are contained within opcode-table
   (simulate-helper config n (list config)))  ; initial configs
 
 
+;; below the key is 13 (1101).  Note that encrypt is also decrypt.
+
+; > (define results (simulate 100 (init-config (assemble encrypt-prog))))
+; input = 511
+; input = 78
+; output = 433
+; input = 999
+; output = 536
+; input = 536
+; output = 999
+; input = 433
+; output = 78
+; input = 0
 
 #|
-  ; encrypt-prog
+; encrypt-prog
 ; reads in a positive integer from the user, which is the encryption
 ; key.  Then it loops, reading in a positive integer and outputting
 ; that integer xor'd with the key.  The loop continues until the user
@@ -1668,7 +1656,7 @@ These codes are contained within opcode-table
     ))
 
 
-(define results (simulate 100 (init-config (assemble encrypt-prog))))
+; (define results (simulate 100 (init-config (assemble encrypt-prog))))
 ; input = 13
 ; input = 8
 ; output = 5
@@ -1738,30 +1726,42 @@ table is presumably the starting point of the data storage in memory.
 |#
 
 (define reverse-prog
-  '((read-num input 0)
-    (skipzero 0)                       
-    (jump store-num)
-    (loop load pointer)
-    (sub constant-pos)
-    (skipzero 0)
-    (jump print)
-    (halt 0)
-    (print add constant-pos)
-    (sub constant-one)
-    (store pointer)
-    (loadi pointer)
-    (output 0)
-    (jump loop)
-    (halt 0) 
-    (store-num storei pointer)
-    (load pointer)
-    (add constant-one)
-    (store pointer)
-    (jump read-num)
-    (pointer data table)
-    (constant-one data 1)
-    (constant-pos data 23)
-    (table data 0)))
+  '(
+    ; reading numbers
+    (read-num input 0)          ; read a number and store it in 'input'
+
+    ; check if number is 0
+    (skipzero 0)                ; if number is zero skip next step
+    (jump store-num)            ; if num is not zero jump to store the number
+
+    ; Storing numbers in memory
+    (store-num storei pointer)  ; store the number in memory at the location pointed to by 'pointer'
+    (load pointer)              ; load curr value  of 'pointer'
+    (add constant-one)          ; inc the pointer by 'constant-one'
+    (store pointer)             ; save new pointer val
+    (jump read-num)             ; go back to the start of the loop
+
+    ; loop start
+    (loop load pointer)         ; start of the loop, load the current value of 'pointer'
+    (sub constant-pos)          ; dec the pointer by 'constant-pos'
+    (skipzero 0)                ; check if the number is zero
+    (jump print)                ; not zero  -> jump to printing the stored numbers
+    (halt 0)                    ; zero -> halt the program
+
+    ; print stored numbers
+    (print add constant-pos)    ; add 'constant-pos' to the pointer to move to the next stored number
+    (sub constant-one)          ; dec the pointer by 'constant-one' to move back to the previous stored number
+    (store pointer)             ; update the pointer
+    (loadi pointer)             ; load num at pointer
+    (output 0)                  ; output num
+    (jump loop)                 ; go back to start of group
+
+    ; data storage
+    (pointer data table)        ; 'point' to the start of the data storage
+    (constant-one data 1)       ; 'constant-one' is used for incrementing/decrementing the pointer
+    (constant-pos data 23)      ; 'constant-pos' might be intended as an offset for memory operations, but its purpose isn't clear in this context
+    (table data 0)              ; 'table' is presumably the starting point of the data storage in memory
+  ))
 
 
 ;(define results (simulate 100 (init-config (assemble reverse-prog))))
@@ -1800,18 +1800,39 @@ table is presumably the starting point of the data storage in memory.
 ; output = 120
 
 (define power-prog
-  '((read-num input 0)           ; Read a number and store in 'input'
-    (skipzero end)               ; If input is 0, jump to end
-    (storei pointer)
-    (load pointer)
-    (jump read-num)
-    (end halt 0)
-    (load pointer)
-    (end halt 0)))           ; End of storing, proceed to halting
+  '(
+    ; Reading the base number
+    (input 0)               ; Read the base number and store it in the accumulator
+    (store base)            ; Store the base number in a memory location labeled 'base'
+
+    ; Reading the exponent
+    (input 0)               ; Read the exponent and store it in the accumulator
+    (store exponent)        ; Store the exponent in a memory location labeled 'exponent'
+
+    ; Loop for calculating the power
+    (power-loop loadi exponent) ; Load the exponent value into the accumulator from 'exponent'
+    (skipzero power-done)       ; If the exponent is zero, skip to 'power-done'
+    (sub constant-one)          ; Decrement the exponent by one
+    (store exponent)            ; Store the decremented exponent value
+    (loadi base)                ; Load the base number into the accumulator from 'base'
+    (shift 1)                   ; Shift left by 1 (equivalent to multiplying by 2)
+    (store base)                ; Store the updated base number
+    (jump power-loop)           ; Repeat the loop
+
+    ; Outputting the result
+    (power-done loadi base)     ; Load the final base number (result) from 'base'
+    (output 0)                  ; Output the final result
+    (halt 0)                    ; Halt the program
+
+    ; Data storage
+    (base data 0)               ; Allocate space for 'base' and initialize it to 0
+    (exponent data 0)           ; Allocate space for 'exponent' and initialize it to 0
+    (constant-one data 1)       ; Allocate space for 'constant-one' and set it to 1
+  ))
 
 
 
-;(define results (simulate 100 (init-config (assemble power-prog))))
+(define results (simulate 100 (init-config (assemble power-prog))))
 ; input = 20 
 ; input = -2
 ; output = 5
@@ -1819,9 +1840,6 @@ table is presumably the starting point of the data storage in memory.
 ; input = 15
 ; input = 3
 ; output = 120
-
-
-
 
 
 ; ********************************************************
