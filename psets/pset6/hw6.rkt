@@ -714,7 +714,7 @@ let construct:
 |#
 (define (do-input config) 
   (let* ([value (begin (display "input=")(read))])
-    (conf (update-cpu 'acc (signed-int->bits value) (conf-cpu config)) (conf-ram config))))
+    (conf (update-cpu 'acc (signed-int->bits value) (conf-cpu config)) (conf-ram config)))) ; update-cpu the cpu with new acc value
 
 #|
 Each takes a TC-201 configuration and performs the appropriate action 
@@ -1002,7 +1002,7 @@ produced by:
 ; right shift the bits by amount
 (define (right-shift bits amount)
   (let ((shifted (take-right bits amount)))
-    (append (make-list (min amount 16) 0) shifted)))
+    (append (make-list (min amount 16) 0) shifted))) ; pad the bits to 16 bits
 
 ; pad the bits to 16 bits
 (define (pad-to-16-bits bits)
@@ -1461,18 +1461,15 @@ These codes are contained within opcode-table
 ;  (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1))
 |#
 
-; Helper function to find the bit representation of an opcode
+; opcode to bits
 (define (opcode-to-bits opcode)
   (define (search-opcode-table table opcode)
     (cond
-      [(null? table) (error "could not find opcode")] ; If end of table, opcode not found
-      [(equal? opcode (entry-key (car table))) (entry-value (car table))] ; If found, return value
-      [else (search-opcode-table (cdr table) opcode)])) ; Otherwise, keep searching
-  (search-opcode-table opcode-table opcode)) ; Start searching
+      [(null? table) (error "could not find opcode")] ; if end of table, opcode not found
+      [(equal? opcode (entry-key (car table))) (entry-value (car table))] 
+      [else (search-opcode-table (cdr table) opcode)])) ; keep searching
+  (search-opcode-table opcode-table opcode)) 
 
-; Helper function to convert an address or data value to its binary representation
-(define (value-to-bits value width)
-  (int->bits-width value width))
 
 
 #|
@@ -1490,29 +1487,30 @@ These codes are contained within opcode-table
 ;  (1 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0)
 ;  (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1))
 |#
-; Main assembly function
+; assembly program
 (define (assemble prog)
-  (let* ([st (symbol-table prog)])
-    (map (lambda (x) (assemble-one x st)) prog)))
+  (let* ([symboltable (symbol-table prog)])
+    (map (lambda (x) (assemble-one x symboltable)) prog)))
 
 (define (assemble-one prog-line st)
-  (let* ([op-name (if (equal? 3 (length prog-line))
+  (let* ([op-name (if (equal? 3 (length prog-line)) ; if line has 3 elements, then it has a label
                       (cadr prog-line)
                       (car prog-line))]
-         [opcode (if (equal? op-name 'data)
+         [opcode (if (equal? op-name 'data) ; deal with data label separately
                      '(0 0 0 0)
-                     (lookup-gen op-name opcode-table))]
+                     (lookup-gen op-name opcode-table))] ; lookup opcode in opcode-table
          [address (last prog-line)]
-         [address (if (number? address)
+         [address (if (number? address) ; if address is a number, then it is a data value
                       address
                       (lookup-gen address st))]
          [address-instr (int->bits-width address 12)]
          [address-data (signed-int->bits address)])
 
     (if (equal? op-name 'data)
-        (flatten (append (list (car address-data)) (append (make-list (- 16 (length address-data)) 0) (list (cdr address-data))))) ; SO SKETCHY WTF
+        (flatten (append (list (car address-data)) (append (make-list (- 16 (length address-data)) 0) (list (cdr address-data))))) ; SO SKETCHY BUT WORKS IG
         (append opcode address-instr))))
 
+; lookup opcode in opcode-table
 (define (lookup-gen key table)
   (cond
     [(null? table) 'none] ; If end of table, opcode not found
@@ -1626,34 +1624,51 @@ These codes are contained within opcode-table
 
 ;************************************************************
 
+; simulate program, MODIFIED
 (define (simulate n config)
-  (let loop ((current-config config) 
-             (iterations n) 
-             (configs (list config)))  ; Start with initial config in the list
-    (if (or (zero? iterations)                    ; Stop if no iterations left
+  (define (simulate-helper current-config iterations configs)
+    (if (or (zero? iterations)  ; check if iter is 0 
             (equal? '(0) (entry-value (find-entry-by-key 'rf (conf-cpu current-config)))))  ; or if run flag is 0
-        (reverse configs)  ; Return the list of configurations
-        (let ((next-config (next-config current-config)))  ; Get the next configuration
-          (loop next-config (sub1 iterations) (cons next-config configs))))))  ; Recurse with update-cpud values
+        (reverse configs)
+        (let ((next-config (next-config current-config))) 
+          (simulate-helper next-config (sub1 iterations) (cons next-config configs)))))  ; recurse with updated values
+  (simulate-helper config n (list config)))  ; initial configs
 
 
-; WORKING WORKING
 
-;here, we read a value, store it as the key, read a new value, if it's positive we calculate the xor in the accumulator and return it.
-;then loop back for more input, if the value was non-positive then we halt
+#|
+  ; encrypt-prog
+; reads in a positive integer from the user, which is the encryption
+; key.  Then it loops, reading in a positive integer and outputting
+; that integer xor'd with the key.  The loop continues until the user
+; enters a non-positive integer.
+|#
 (define encrypt-prog
-  '((input 0)
-    (store key)
-    (read input 0)
-    (skippos 0)
-    (jump stop)
-    (xor key) 
-    (output 0)
-    (jump read)
-    (stop halt 0)
-    (key data 0)))
+  '(
+    (input 0)        ; read the encryption key and store it in the accumulator
+    (store key)      ; store the encryption key in memory at the location pointed to by 'key'
 
-; (define results (simulate 100 (init-config (assemble encrypt-prog))))
+    ; main loop start
+    (read input 0)   ; read the next number and store it in the accumulator
+    (skippos 0)      ; check if the number is positive
+    (jump stop)      ; if not, jump to the end of the program
+
+    ; encryption step
+    (xor key)        ; xor the number with the encryption key
+    (output 0)       ; output the result
+
+    ; return start of loop
+    (jump read)      ; back to the start of the loop
+
+    ; end of program
+    (stop halt 0)    ; label for the end of the program
+
+    ; data storage
+    (key data 0)     ; allocate memory for the encryption key and initialize it to 0
+    ))
+
+
+(define results (simulate 100 (init-config (assemble encrypt-prog))))
 ; input = 13
 ; input = 8
 ; output = 5
