@@ -1001,8 +1001,8 @@ produced by:
 
 ; right shift the bits by amount
 (define (right-shift bits amount)
-  (let ((shifted (take-right bits amount)))
-    (append (make-list (min amount 16) 0) shifted))) ; pad the bits to 16 bits
+  (let ((padded (append (make-list amount 0) bits))) ; Add zeros to the left
+    (take padded (max 0 (- (length padded) amount))))) ; Trim the right side to maintain length
 
 ; pad the bits to 16 bits
 (define (pad-to-16-bits bits)
@@ -1010,13 +1010,6 @@ produced by:
     (if (< bit-count 16)
         (append (make-list (- 16 bit-count) 0) bits)
         bits)))
-
-; extract the bits from start to end
-(define (take-right lst n)
-  (if (> n (length lst))
-      lst
-      (list-tail lst (- (length lst) n))))
-
 
 ;************************************************************
 ; ** problem 8 ** (10 points)
@@ -1216,7 +1209,6 @@ The result is stored in the accumulator.  All other registers are unaffected.
           ((= opcode-int 14) (do-and address-int (conf pc-update-cpud-cpu (conf-ram config))))
           ((= opcode-int 15) (do-xor address-int (conf pc-update-cpud-cpu (conf-ram config)))))))
   
-
 
 ;************************************************************
 ; ** problem 10 ** (10 points)
@@ -1461,16 +1453,6 @@ These codes are contained within opcode-table
 ;  (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1))
 |#
 
-; opcode to bits
-(define (opcode-to-bits opcode)
-  (define (search-opcode-table table opcode)
-    (cond
-      [(null? table) (error "could not find opcode")] ; if end of table, opcode not found
-      [(equal? opcode (entry-key (car table))) (entry-value (car table))] 
-      [else (search-opcode-table (cdr table) opcode)])) ; keep searching
-  (search-opcode-table opcode-table opcode)) 
-
-
 
 #|
 ; assemble program
@@ -1624,39 +1606,36 @@ These codes are contained within opcode-table
 ; output = 78
 ; input = 0
 
-#|
-; encrypt-prog
-; reads in a positive integer from the user, which is the encryption
-; key.  Then it loops, reading in a positive integer and outputting
-; that integer xor'd with the key.  The loop continues until the user
-; enters a non-positive integer.
-|#
+
 (define encrypt-prog
   '(
-    (input 0)        ; read the encryption key and store it in the accumulator
-    (store key)      ; store the encryption key in memory at the location pointed to by 'key'
+    (start  input 0)        ; read the encryption key and store it in the accumulator
+    (       store key)      ; store the encryption key in memory at the location pointed to by 'key'
 
     ; main loop start
-    (read input 0)   ; read the next number and store it in the accumulator
-    (skippos 0)      ; check if the number is positive
-    (jump stop)      ; if not, jump to the end of the program
+    (next   input 0)        ; read the next number and store it in the accumulator
+    (       skippos 0)      ; check if the number is positive
+    (       jump stop)      ; if not, jump to the end of the program
 
     ; encryption step
-    (xor key)        ; xor the number with the encryption key
-    (output 0)       ; output the result
+    (       xor key)        ; xor the number with the encryption key
+    (       output 0)       ; output the result
 
     ; return start of loop
-    (jump read)      ; back to the start of the loop
-
-    ; end of program
-    (stop halt 0)    ; label for the end of the program
+    (       jump next)      ; back to the start of the loop
 
     ; data storage
     (key data 0)     ; allocate memory for the encryption key and initialize it to 0
+    (input data 0)   ; allocate memory for the input and initialize it to 0
+    (stop  data 0)   ; allocate memory for the stop label and initialize it to 0
+
+    ; end of program
+    (stop   halt 0)    ; label for the end of the program
+
     ))
 
 
-; (define results (simulate 100 (init-config (assemble encrypt-prog))))
+;(define results (simulate 100 (init-config (assemble encrypt-prog))))
 ; input = 13
 ; input = 8
 ; output = 5
@@ -1664,7 +1643,7 @@ These codes are contained within opcode-table
 ; output = 2
 ; input = 2
 ; output = 15
-; input = 5
+; input = 5 
 ; output = 8
 ; input = 0
 
@@ -1707,61 +1686,43 @@ These codes are contained within opcode-table
 ;output = 13
 ;************************************************************
 
-#|
 
-Reading and Storing Numbers:
-
-The program starts with read-num, reads a number, and checks if it's zero with skipzero.
-If not zero, it stores the number in memory at the location pointed to by pointer and then increments pointer.
-Reversing and Outputting Numbers:
-
-After the zero is read, the program should switch to reverse output mode.
-It starts from the last stored number and decrements pointer to move backward through the stored numbers, outputting each until it reaches the start.
-Constants and Data:
-
-constant-one is used for incrementing/decrementing the pointer.
-constant-pos might be intended as an offset for memory operations, but its purpose isn't clear in this context.
-table is presumably the starting point of the data storage in memory.
-
-|#
-
-(define reverse-prog
+  (define reverse-prog
   '(
-    ; reading numbers
-    (read-num input 0)          ; read a number and store it in 'input'
+    ; reading numbers from user input and storing them in memory
+    (start    input 0)
+    (         skipzero 0)
+    (         jump memory)
 
-    ; check if number is 0
-    (skipzero 0)                ; if number is zero skip next step
-    (jump store-num)            ; if num is not zero jump to store the number
 
-    ; Storing numbers in memory
-    (store-num storei pointer)  ; store the number in memory at the location pointed to by 'pointer'
-    (load pointer)              ; load curr value  of 'pointer'
-    (add constant-one)          ; inc the pointer by 'constant-one'
-    (store pointer)             ; save new pointer val
-    (jump read-num)             ; go back to the start of the loop
+    ; iterator for finding reverse of numbers
+    (iterator load currval)             ; load current value
+    (         sub position)             ; subrtract position from current value
+    (         skipzero 0)               ; check if result is 0
+    (         jump end)                 ; if so, print stored numbers
+    (         halt 0) 
 
-    ; loop start
-    (loop load pointer)         ; start of the loop, load the current value of 'pointer'
-    (sub constant-pos)          ; dec the pointer by 'constant-pos'
-    (skipzero 0)                ; check if the number is zero
-    (jump print)                ; not zero  -> jump to printing the stored numbers
-    (halt 0)                    ; zero -> halt the program
+    ; printing out all of the stored numbers
+    (end      add position)             ; add position to current value
+    (         sub one)                  ; subtract one
+    (         store currval)            ; store current value
+    (         loadi currval)            ; load number stored at address in current value
+    (         output 0)
+    (         jump iterator)            ; jump back to the iterator to continue outputting in reverse
+    (         halt 0) 
 
-    ; print stored numbers
-    (print add constant-pos)    ; add 'constant-pos' to the pointer to move to the next stored number
-    (sub constant-one)          ; dec the pointer by 'constant-one' to move back to the previous stored number
-    (store pointer)             ; update the pointer
-    (loadi pointer)             ; load num at pointer
-    (output 0)                  ; output num
-    (jump loop)                 ; go back to start of group
+    ; storing numbers in memory
+    (memory   storei currval)
+    (         load currval)
+    (         add one)
+    (         store currval)
+    (         jump start)
 
-    ; data storage
-    (pointer data table)        ; 'point' to the start of the data storage
-    (constant-one data 1)       ; 'constant-one' is used for incrementing/decrementing the pointer
-    (constant-pos data 23)      ; 'constant-pos' might be intended as an offset for memory operations, but its purpose isn't clear in this context
-    (table data 0)              ; 'table' is presumably the starting point of the data storage in memory
-  ))
+    ; all dealing with modifying the current value
+    (currval  data table)
+    (         one data 1)
+    (         position data 23)         
+    (         table data 0)))
 
 
 ;(define results (simulate 100 (init-config (assemble reverse-prog))))
@@ -1801,38 +1762,47 @@ table is presumably the starting point of the data storage in memory.
 
 (define power-prog
   '(
-    ; Reading the base number
-    (input 0)               ; Read the base number and store it in the accumulator
-    (store base)            ; Store the base number in a memory location labeled 'base'
+    ; store base number
+    (start    input 0)           
+    (         store num)               
 
-    ; Reading the exponent
-    (input 0)               ; Read the exponent and store it in the accumulator
-    (store exponent)        ; Store the exponent in a memory location labeled 'exponent'
+    ; determine its sign
+    (         input 0)                
+    (         store power)            
+    (         load power)            
+    (         skipzero exponent-zero)  
+    (         skippos exponent-pos)   
+    (         jump exponent-neg)      
 
-    ; Loop for calculating the power
-    (power-loop loadi exponent) ; Load the exponent value into the accumulator from 'exponent'
-    (skipzero power-done)       ; If the exponent is zero, skip to 'power-done'
-    (sub constant-one)          ; Decrement the exponent by one
-    (store exponent)            ; Store the decremented exponent value
-    (loadi base)                ; Load the base number into the accumulator from 'base'
-    (shift 1)                   ; Shift left by 1 (equivalent to multiplying by 2)
-    (store base)                ; Store the updated base number
-    (jump power-loop)           ; Repeat the loop
+    ; positive exponent
+    (exponent-pos load num)   
+    (         shift power)             
+    (         output 0)                
+    (         jump end)              
 
-    ; Outputting the result
-    (power-done loadi base)     ; Load the final base number (result) from 'base'
-    (output 0)                  ; Output the final result
-    (halt 0)                    ; Halt the program
+    ; zero exponent
+    (exponent-zero load one) 
+    (         output 0)              
+    (         jump end)           
 
-    ; Data storage
-    (base data 0)               ; Allocate space for 'base' and initialize it to 0
-    (exponent data 0)           ; Allocate space for 'exponent' and initialize it to 0
-    (constant-one data 1)       ; Allocate space for 'constant-one' and set it to 1
+    ; negative exponent
+    (exponent-neg load num)     
+    (         shift power)                    
+    (         output 0)                    
+    (         jump end)                   
+
+    (end      halt 0)
+
+    ; data storage
+    (         power data 0)            
+    (         num   data 0)          
+    (         one   data 1)          
   ))
 
 
 
-(define results (simulate 100 (init-config (assemble power-prog))))
+
+;(define results (simulate 100 (init-config (assemble power-prog))))
 ; input = 20 
 ; input = -2
 ; output = 5
