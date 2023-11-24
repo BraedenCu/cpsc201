@@ -39,7 +39,7 @@
 ; Modify the following definition to reflect the number of
 ; hours you spent on this assignment.
 
-(define hours 10)
+(define hours 20)
 
 ; ********************************************************
 ; ** problem 00 ** (1 fairly easy point)
@@ -60,7 +60,7 @@ hello world
 
 ; define xxxx below to be the correct UNIX command.
 
-(define xxxx "type file")
+(define xxxx "file file")
 
 
 ;************************************************************
@@ -169,7 +169,7 @@ hello world
              (drop ram (+ 1 address)))]))     ; add rest of register
 
 (define (finddiff ram1 ram2)
-  (for/fold ([diffs '()])  ; accumulate diffs
+  (for/fold ([diffs '()])  ; accumulate differences using for/fold syntax which iterates like for but before iteration starts the init-exprs are evaluated to produce initial accumulator values
             ([index (in-range (max (length ram1) (length ram2)))])  ; iterate over range
     (let ((contents1 (ram-read index ram1))
           (contents2 (ram-read index ram2)))
