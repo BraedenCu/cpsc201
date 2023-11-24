@@ -1426,19 +1426,20 @@ Steps
 2. Create a list of entries for each label
 3. Sort entries by address
 |#
-; Extracts labels from the program and their corresponding addresses
 (define (extract-labels-and-addresses prog)
-  (let loop ((prog prog) (address 0) (labels '()))
+  (define (helper prog address labels)
     (if (null? prog)
         labels
         (let ((line (car prog)))
-          (if (= (length line) 3) ; Line contains a label
-              (loop (cdr prog) (+ 1 address) (cons (entry (car line) address) labels))
-              (loop (cdr prog) (+ 1 address) labels))))))
+          (if (= (length line) 3) ; line contains a label
+              (helper (cdr prog) (+ 1 address) (cons (entry (car line) address) labels))
+              (helper (cdr prog) (+ 1 address) labels)))))
+  (reverse (helper prog 0 '())))
 
 ; Constructs the symbol table
 (define (symbol-table prog)
-  (reverse (extract-labels-and-addresses prog)))
+  (extract-labels-and-addresses prog))
+
 
 
 #|
@@ -1636,7 +1637,7 @@ These codes are contained within opcode-table
     ))
 
 
-;(define results (simulate 100 (init-config (assemble encrypt-prog))))
+(define results (simulate 100 (init-config (assemble encrypt-prog))))
 ; input = 13
 ; input = 8
 ; output = 5
