@@ -25,8 +25,8 @@
 ; CS 201 HW #7  DUE Wednesday, November 29th at 11:59 pm, 
 ; via the submit system on the Zoo.
 ;************************************************************
-; Name:
-; Email address:
+; Name: Braeden Cullen
+; Email address: braeden.cullen@yale.edu
 ;************************************************************
 
 ; Computer science topics: strings, languages, regular expressions,
@@ -69,7 +69,7 @@
 ; Modify the following definition to reflect the number of
 ; hours you spent on this assignment.
 
-(define hours 0)
+(define hours 10)
 
 ;************************************************************
 ; ** problem 1 ** (9 points)
@@ -90,7 +90,7 @@
 ; (ok-string? '(this is one)) => #t
 ; (ok-string? 'no) => #f
 ; (ok-string? '(0 1)) => #f
-; (reg-exp? exp1) => #t
+; (reg-exp? exp1) => #t 
 ; (reg-exp? exp2) => #t
 ; (reg-exp? exp3) => #t
 ; (reg-exp? exp4) => #t
@@ -99,11 +99,23 @@
 ; (reg-exp? '((a b))) => #f
 ;************************************************************
 
-(define (ok-string? value)
-  "ok-string? not defined yet")
 
-(define (reg-exp? value)
-  "reg-exp? not defined yet")
+(define (ok-string? value) 
+  (cond
+    [(not (list? value)) #f]
+    [(empty? value) #t]
+    [else (if (symbol? (first value))
+              (ok-string? (rest value))
+              #f)]))
+
+
+(define (reg-exp? value) empty)
+#| 
+; The procedure (reg-exp? value) takes an arbitrary Racket value
+; and returns #t if it is a Regular Expression according to the
+; definition given above, and #f otherwise.
+|# 
+
 
 ;************************************************************
 ; ** problem 2 ** (10 points)
