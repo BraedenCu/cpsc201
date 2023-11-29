@@ -591,9 +591,35 @@
 ;vi -> slept | swam
 ;vt -> chased | evaded
 ;v3 -> dreamed | believed
-(define exp-mcd empty)
-  
 
+(define exp-mcd
+  (concat
+    ; s -> np vp
+    (either 
+      (concat
+        ; np -> det n | pn
+        (either 
+          (concat 
+            ; det -> a | the
+            (either '(a) '(the))
+            ; n -> mouse | cat | dog
+            (either (either '(mouse) '(cat)) '(dog)))
+          '(pn))  ; pn -> it
+        ; vp -> vi | vt np | v3 that s
+        (either 
+          ; vi -> slept | swam
+          (either '(slept) '(swam))
+          (either 
+            (concat 
+              ; vt -> chased | evaded
+              (either '(chased) '(evaded))
+              '(np))  ; vt np
+            (concat 
+              ; v3 -> dreamed | believed
+              (either '(dreamed) '(believed))
+              (concat '(that) '(s))))))  ; v3 that s
+      '(vp))  ; s -> vp
+    '()))
 
 ;************************************************************
 
@@ -690,7 +716,7 @@ In this CFG:
 ;; However, by setting the random-seed, we generate the same sequence of 
 ;; pseudo random numbers every time.
 
-;(random-seed 100)
+; (random-seed 100)
 
 ; (test 'flip (map (lambda (x) (flip .5)) '(1 2 3 4 5 6 7 8 9 10)) '(#t #f #t #f #f #t #t #f #t #f))
 ; (test 'pick (pick '(1 2 3 4 5 6 7 8 9 10)) 4)
@@ -726,6 +752,6 @@ In this CFG:
 (test 'generate-string-from-cfg (generate-string-from-cfg grammar-anbn) '(a a b b))
 
 ; testing my cfg
-(generate-string-from-cfg my-cfg)
+; (generate-string-from-cfg my-cfg)
 
 ;********************** end of hw7.rkt **********************
