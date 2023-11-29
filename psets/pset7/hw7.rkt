@@ -461,11 +461,34 @@
 ; (generate-string-from-cfg grammar-anbn) => '()
 ;************************************************************
 
-(define (generate-parse-tree-from-cfg grammar)
-  "generate-parse-tree-from-cfg not defined yet")
+(define (ramdom-element lst)
+  (list-ref lst (random (length lst))))
 
+(define (generate-parse-tree-from-cfg grammar)
+  (define (random-rule-for-symbol symbol)
+    (let ((rules (filter (lambda (r) (equal? (rule-lhs r) symbol)) 
+                         (cfg-rules grammar))))
+      (if (null? rules)
+          (error "No rules for symbol" symbol)
+          (ramdom-element rules))))
+
+  (define (expand symbol)
+    (if (member symbol (cfg-terminals grammar))
+        (leaf symbol)
+        (let ((rule (random-rule-for-symbol symbol)))
+          (node symbol
+                (map expand (rule-rhs rule))))))
+
+  (expand (cfg-start-symbol grammar)))
+  
 (define (generate-string-from-cfg grammar)
-  "generate-string-from-cfg not defined yet")
+  (define (collect-leaves tree)
+    (cond
+      [(leaf? tree) (list (leaf-label tree))]
+      [(node? tree) (apply append (map collect-leaves (node-children tree)))]
+      [else '()]))
+
+  (collect-leaves (generate-parse-tree-from-cfg grammar)))
 
 ;************************************************************
 ; ** problem 7 ** (10 points)
