@@ -459,6 +459,15 @@
 ; (generate-string-from-cfg grammar-anbn) => '(a b)
 ; (generate-string-from-cfg grammar-anbn) => '(a a b b)
 ; (generate-string-from-cfg grammar-anbn) => '()
+
+
+; Second, when coding the behavior of the Kleene star for generate-expression-from-reg-ex, 
+; you MUST code it so that there’s a positive probability of the given expression repeating 
+; anywhere from 0 to infinite times. This means you can’t code it to arbitrarily print x times 
+; between some range like 0-5. Consider how you might code it so that there’s a 50% chance you 
+; keep repeating or you stop. 
+
+
 ;************************************************************
 
 (define (ramdom-element lst)
@@ -494,10 +503,41 @@
 ; ** problem 7 ** (10 points)
 ; Define a DFA named dfa-mcd to recognize the language of 
 ; the CFG grammar-mcd.
+; to make a dfa from a grammer, you need to make a state for each nonterminal symbol
+; and a transition for each rule.  The start state is the start symbol. The accepting
+; states are the nonterminal symbols that have an empty rhs.  The alphabet is the union
+; of the terminals and nonterminals.  The transitions are the rules.  The transitions
+; are a list of entry structs, where the key is a list containing a state and a symbol,
+; and the value is a state.
 ;************************************************************
 
-(define dfa-mcd
-  (dfa "dfa-mcd" "is" "not" "defined" "yet"))
+(define dfa-mcd 
+  (dfa
+   '(a the mouse cat dog it slept swam chased evaded dreamed believed that)
+   '(s np vp det n pn vi vt v3)
+   's
+   '(np vp det n pn vi vt v3)
+   (list
+    (entry '(s np) 's)
+    (entry '(s vp) 's)
+    (entry '(np det) 'np)
+    (entry '(np n) 'np)
+    (entry '(np pn) 'np)
+    (entry '(det a) 'det)
+    (entry '(det the) 'det)
+    (entry '(n mouse) 'n)
+    (entry '(n cat) 'n)
+    (entry '(n dog) 'n)
+    (entry '(pn it) 'pn)
+    (entry '(vp vi) 'vp)
+    (entry '(vp vt) 'vp)
+    (entry '(vp v3) 'vp)
+    (entry '(vi slept) 'vi)
+    (entry '(vi swam) 'vi)
+    (entry '(vt chased) 'vt)
+    (entry '(vt evaded) 'vt)
+    (entry '(v3 dreamed) 'v3)
+    (entry '(v3 believed) 'v3))))
 
 ;************************************************************
 ; ** problem 8 ** (10 points)
@@ -505,9 +545,11 @@
 ; the CFG grammar-mcd.
 ;************************************************************
 
-(define exp-mcd
-  "exp-mcd not defined yet")
-  
+(define exp-mcd empty)
+
+
+;************************************************************
+
 ;************************************************************
 ; ** problem 9 ** (15 points)
 ; Define your own CFG named my-cfg of complexity at least as great as 
@@ -517,8 +559,30 @@
 ; (Please do more than just copy grammar-mcd with a few changes.)
 ;************************************************************
 
-(define my-cfg
-  (cfg "my-cfg" "not" "defined" "yet"))
+(define my-cfg 
+  (cfg
+   '(a the mouse cat dog it slept swam chased evaded dreamed believed that)
+   '(s np vp det n pn vi vt v3)
+   's
+   (list
+    (rule 's '(np vp))
+    (rule 'np '(det n))
+    (rule 'np '(pn))
+    (rule 'det '(a))
+    (rule 'det '(the))
+    (rule 'n '(mouse))
+    (rule 'n '(cat))
+    (rule 'n '(dog))
+    (rule 'pn '(it))
+    (rule 'vp '(vi))
+    (rule 'vp '(vt np))
+    (rule 'vp '(v3 that s))
+    (rule 'vi '(slept))
+    (rule 'vi '(swam))
+    (rule 'vt '(chased))
+    (rule 'vt '(evaded))
+    (rule 'v3 '(dreamed))
+    (rule 'v3 '(believed)))))
 
 ;************************************************************
 
@@ -559,7 +623,7 @@
 ;; However, by setting the random-seed, we generate the same sequence of 
 ;; pseudo random numbers every time.
 
-(random-seed 100)
+;(random-seed 100)
 
 ; (test 'flip (map (lambda (x) (flip .5)) '(1 2 3 4 5 6 7 8 9 10)) '(#t #f #t #f #f #t #t #f #t #f))
 ; (test 'pick (pick '(1 2 3 4 5 6 7 8 9 10)) 4)
