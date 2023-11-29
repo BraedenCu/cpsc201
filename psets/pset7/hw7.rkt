@@ -109,12 +109,23 @@
               #f)]))
 
 
-(define (reg-exp? value) empty)
-#| 
-; The procedure (reg-exp? value) takes an arbitrary Racket value
-; and returns #t if it is a Regular Expression according to the
-; definition given above, and #f otherwise.
-|# 
+(define (reg-exp? value)
+  (cond
+    [(ok-string? value) #t]
+    [(and (concat? value)
+          (reg-exp? (concat-arg1 value))
+          (reg-exp? (concat-arg2 value)))
+     #t]
+    [(and (either? value)
+          (reg-exp? (either-arg1 value))
+          (reg-exp? (either-arg2 value)))
+     #t]
+    [(and (repeat? value)
+          (reg-exp? (repeat-arg1 value)))
+     #t]
+    [else #f]))
+
+
 
 
 ;************************************************************
@@ -161,10 +172,13 @@
 ;************************************************************
 
 (define (flip bias)
-  "flip not defined yet" #t)
+  (<= (random) bias))
 
 (define (pick lst)
-  "pick not defined yet" 1)
+  (if (null? lst)
+      #f
+      (list-ref lst (random (length lst)))))
+
 
 ;************************************************************
 ; ** problem 3 ** (10 points)
@@ -189,7 +203,25 @@
 ;************************************************************
 
 (define (generate-string-from-reg-exp exp)
-  "generate-string-from-reg-exp not defined yet")
+  (define (generate-repeat-string repeat-exp)
+    (if (flip 0.5)  ; decide if to continue repeating, randomly
+        '()
+        (append (generate-string-from-reg-exp (repeat-arg1 repeat-exp))
+                (generate-repeat-string repeat-exp))))  
+  (cond
+    [(ok-string? exp) exp]
+    [(concat? exp)
+     (append (generate-string-from-reg-exp (concat-arg1 exp))
+             (generate-string-from-reg-exp (concat-arg2 exp)))]
+
+    [(either? exp)
+     (generate-string-from-reg-exp (if (flip 0.5) 
+                                       (either-arg1 exp) 
+                                       (either-arg2 exp)))]
+    [(repeat? exp)
+     (generate-repeat-string exp)]
+    [else '()]))
+
 
 ;************************************************************
 ; A (possibly incomplete) Deterministic Finite State Acceptor (DFA)
@@ -257,7 +289,28 @@
 ;************************************************************
 
 (define (dfa-accepts? mach str)
-  "dfa-accepts? not defined yet")
+  (define (find-next-state current-state symbol transitions)
+    (cond
+      [(null? transitions) #f]  
+      [else
+       (let ((trans (first transitions)))
+         (if (and (eq? (first (entry-key trans)) current-state)
+                  (eq? (second (entry-key trans)) symbol))
+             (entry-value trans)
+             (find-next-state current-state symbol (rest transitions))))]))
+
+  (define (process-string state str transitions)
+    (if (null? str)
+        state  
+        (let ((next-state (find-next-state state (first str) transitions)))
+          (if next-state
+              (process-string next-state (rest str) transitions)
+              #f))))  
+  (let ((final-state (process-string (dfa-start-state mach) str (dfa-transitions mach))))
+    (if (not (equal? (member final-state (dfa-accepting-states mach)) #f))
+        #t
+        #f)))
+
      
 ;************************************************************
 ; A Context Free Grammar (CFG) is represented using the following.
@@ -355,7 +408,12 @@
 ;************************************************************
 
 (define (list-leaf-labels tree)
-  "list-leaf-labels not defined yet")
+  (cond
+    [(leaf? tree) (list (leaf-label tree))]
+    [(node? tree)
+     (apply append (map list-leaf-labels (node-children tree)))]
+    [else '()]))
+
 
 ;************************************************************
 ; ** problem 6 ** (15 points)
