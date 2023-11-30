@@ -105,28 +105,20 @@
     [(not (list? value)) #f]
     [(empty? value) #t]
     [else (if (symbol? (first value))
-              (ok-string? (rest value))
-              #f)]))
-
+              (ok-string? (rest value)) #f)]))
 
 (define (reg-exp? value)
   (cond
     [(ok-string? value) #t]
     [(and (concat? value)
           (reg-exp? (concat-arg1 value))
-          (reg-exp? (concat-arg2 value)))
-     #t]
+          (reg-exp? (concat-arg2 value))) #t]
     [(and (either? value)
           (reg-exp? (either-arg1 value))
-          (reg-exp? (either-arg2 value)))
-     #t]
+          (reg-exp? (either-arg2 value))) #t]
     [(and (repeat? value)
-          (reg-exp? (repeat-arg1 value)))
-     #t]
+          (reg-exp? (repeat-arg1 value))) #t]
     [else #f]))
-
-
-
 
 ;************************************************************
 ; ** problem 2 ** (10 points)
@@ -203,24 +195,22 @@
 ;************************************************************
 
 (define (generate-string-from-reg-exp exp)
-  (define (generate-repeat-string repeat-exp)
-    (if (flip 0.5)  ; decide if to continue repeating, randomly
-        '()
-        (append (generate-string-from-reg-exp (repeat-arg1 repeat-exp))
-                (generate-repeat-string repeat-exp))))  
   (cond
     [(ok-string? exp) exp]
     [(concat? exp)
      (append (generate-string-from-reg-exp (concat-arg1 exp))
              (generate-string-from-reg-exp (concat-arg2 exp)))]
-
     [(either? exp)
      (generate-string-from-reg-exp (if (flip 0.5) 
                                        (either-arg1 exp) 
                                        (either-arg2 exp)))]
     [(repeat? exp)
-     (generate-repeat-string exp)]
+     (if (flip 0.5)
+         '()
+         (append (generate-string-from-reg-exp (repeat-arg1 exp))
+                 (generate-string-from-reg-exp (repeat exp))))]
     [else '()]))
+
 
 
 ;************************************************************
@@ -513,38 +503,41 @@
 
 (define dfa-mcd 
   (dfa
-   ; union of terminals and nonterminals from grammar-mcd
-   (append '(a the mouse cat dog it slept swam chased evaded dreamed believed that)
-           '(s np vp det n pn vi vt v3))
-   ; nonterminal symbols from grammar-mcd
-   '(s np vp det n pn vi vt v3)
-   ; start symbol of grammar-mcd
-   's
-   ; nonterminals with an empty rhs in the grammar, terminating symbols
-   '(np det n pn vi vt v3)  
-   ; tansitions b on the grammar rules
-   (list
-    (entry '(s np) 's)
-    (entry '(s vp) 's)
-    (entry '(np det) 'np)
-    (entry '(np n) 'np)
-    (entry '(np pn) 'np)
-    (entry '(det a) 'det)
-    (entry '(det the) 'det)
-    (entry '(n mouse) 'n)
-    (entry '(n cat) 'n)
-    (entry '(n dog) 'n)
-    (entry '(pn it) 'pn)
-    (entry '(vp vi) 'vp)
-    (entry '(vp vt) 'vp)
-    (entry '(vp v3) 'vp)
-    (entry '(vi slept) 'vi)
-    (entry '(vi swam) 'vi)
-    (entry '(vt chased) 'vt)
-    (entry '(vt evaded) 'vt)
-    (entry '(v3 dreamed) 'v3)
-    (entry '(v3 believed) 'v3))))
+    '(a the mouse cat dog it slept swam chased evaded dreamed believed that)
+    '(q1 q2 q3 q4 q5 q6 q7)
+    'q1
+    '(q7)  
+    (list
+      (entry '(q1 a) 'q2)
+      (entry '(q1 the) 'q2)
+      (entry '(q1 it) 'q3)
 
+      (entry '(q2 mouse) 'q3)
+      (entry '(q2 cat) 'q3)
+      (entry '(q2 dog) 'q3)
+
+      (entry '(q3 slept) 'q7)
+      (entry '(q3 swam) 'q7)
+
+      (entry '(q3 dreamed) 'q6)
+      (entry '(q3 believed) 'q6)
+      (entry '(q3 chased) 'q4)
+      (entry '(q3 evaded) 'q4)
+
+      (entry '(q4 a) 'q5)
+      (entry '(q4 the) 'q5)
+      (entry '(q4 it) 'q7)
+
+      (entry '(q5 mouse) 'q7)
+      (entry '(q5 cat) 'q7)
+      (entry '(q5 dog) 'q7)
+
+      (entry '(q6 that) 'q1)
+
+    )))
+
+      
+    
 ;************************************************************
 ; ** problem 8 ** (10 points)
 ; Define a Regular Expression named exp-mcd to denote the language of 
@@ -581,46 +574,44 @@
 |#
 
 ;for grammar-mcd, we have the following non-terminal symbols and their corresponding productions:
+#|
+(define exp-mcd
+  (concat (either (concat (either '(a) '(the))
+                          (either (either '(mouse) '(cat)) 
+                                  '(dog)))
+                  '(it))
+          (either (either '(slept) '(swam)) 
+                  (either (concat (either '(chased) '(evaded)) 
+                                  (either (concat (either '(a) '(the)) 
+                                                  (either (either '(mouse) '(cat)) '(dog))) 
+                                          '(it)))
+                          (concat (concat (either '(dreamed) '(believed))
+                                          '(that)) 
+                                  '(it)))) 
+            ))
+|#
 
-;s -> np vp
-;np -> det n | pn
-;vp -> vi | vt np | v3 that s
-;det -> a | the
-;n -> mouse | cat | dog
-;pn -> it
-;vi -> slept | swam
-;vt -> chased | evaded
-;v3 -> dreamed | believed
-
+; fixed
 (define exp-mcd
   (concat
-    ; s -> np vp
-    (either 
-      (concat
-        ; np -> det n | pn
-        (either 
-          (concat 
-            ; det -> a | the
+   (either (concat
             (either '(a) '(the))
-            ; n -> mouse | cat | dog
             (either (either '(mouse) '(cat)) '(dog)))
-          '(pn))  ; pn -> it
-        ; vp -> vi | vt np | v3 that s
-        (either 
-          ; vi -> slept | swam
-          (either '(slept) '(swam))
-          (either 
-            (concat 
-              ; vt -> chased | evaded
-              (either '(chased) '(evaded))
-              '(np))  ; vt np
-            (concat 
-              ; v3 -> dreamed | believed
-              (either '(dreamed) '(believed))
-              (concat '(that) '(s))))))  ; v3 that s
-      '(vp))  ; s -> vp
-    '()))
+           '(it))
+   (concat (repeat (concat (concat (either '(dreamed) '(believed))
+                                   '(that))
+                           (either (concat (either '(a) '(the))
+                                           (either (either '(mouse) '(cat))
+                                                   '(dog)))
+                                   '(it))))
+           (either (either '(slept) '(swam))
+                   (concat (either '(chased) '(evaded))
+                           (either (concat (either '(a) '(the))
+                                           (either (either '(mouse) '(cat))
+                                                   '(dog)))
+                                   '(it)))))))
 
+               
 ;************************************************************
 
 ;************************************************************
@@ -644,9 +635,9 @@
       ; define player
       (rule 'Player '(player))
 
-      ; a game is a game event followed by a game.
+      ; a game is a game event followed by a game
       (rule 'Game '(Action Result Game))
-      (rule 'Game '(continues))
+      (rule 'Game '())  ; end condition for recursion
 
       ; shot on goal
       (rule 'Action '(shoots))
@@ -654,25 +645,24 @@
       ; shot is saved or goal is scored
       (rule 'Result '(saved))
       (rule 'Result '(scored))
+
+      ; recursion: game continues after a save
+      (rule 'Game '(continues Action saved Game))  
+      ; end of game: no more actions after a score
+      (rule 'Game '(continues Action scored))
     )
   )
 )
+
+
+
+
 #|
-In this CFG:
+  sentences generated by this grammar: 
 
-  'S' is the start symbol, representing the start of a soccer game sequence.
-  The rule 'Player plays soccer Game' establishes the structure of a game, involving a player engaging in the game of soccer followed by various game events.
-  Game events ('Game') are sequences of actions ('Action') such as 'shoots', followed by results ('Result') like 'saved' or 'scored', and can be followed by additional game events, allowing for recursion.
-  The 'Player' nonterminal is defined to simply be 'player', reflecting the participant in the game.
-  The grammar allows for the representation of ongoing game events through the recursive use of the 'Game' nonterminal. This structure enables the creation of sentences describing a series of soccer plays and their outcomes.
-
-  Examples of sentences generated by this grammar could include:
-
-  "player plays soccer shoots saved continues"
+  "player plays soccer continues shoots saved shoots saved continues shoots saved continues shoots saved continues shoots scored"
   "player plays soccer shoots scored continues shoots saved"
   "player plays soccer continues"
-
-  This CFG, with its focus on the actions and results of soccer shots, allows for a dynamic representation of a soccer game's flow. Its complexity and recursive nature go beyond that of grammar-mcd, offering a more intricate and varied structure.
 
 |#
 
@@ -737,6 +727,8 @@ In this CFG:
 (test 'dfa-accepts? (dfa-accepts? car-cdr '(c a d a r)) #t)
 (test 'dfa-accepts? (dfa-accepts? car-cdr '(c a r d)) #f)
 
+;(dfa-accepts? dfa-mcd (generate-string-from-cfg grammar-mcd))
+
 (test 'list-leaf-labels (list-leaf-labels tree1) '(c d g h i))
 
 (test 'generate-parse-tree-from-cfg (generate-parse-tree-from-cfg grammar-mcd)
@@ -752,6 +744,15 @@ In this CFG:
 (test 'generate-string-from-cfg (generate-string-from-cfg grammar-anbn) '(a a b b))
 
 ; testing my cfg
-; (generate-string-from-cfg my-cfg)
+;(generate-string-from-cfg my-cfg)
 
 ;********************** end of hw7.rkt **********************
+
+;(define (test-exp-mcd num-tests)
+;  (for ([i (in-range num-tests)])
+;    (let ([generated-string (generate-string-from-reg-exp exp-mcd)])
+;      (displayln (list "Test #" i ": String: " generated-string "Accepted by DFA: " (dfa-accepts? dfa-mcd generated-string))))))
+
+;(test-exp-mcd 10) ; This will test exp-mcd 10 times.
+
+;(reg-exp? exp-mcd)
