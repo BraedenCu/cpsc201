@@ -284,8 +284,8 @@
       [(null? transitions) #f]  
       [else
        (let ((trans (first transitions)))
-         (if (and (eq? (first (entry-key trans)) current-state)
-                  (eq? (second (entry-key trans)) symbol))
+         (if (and (equal? (first (entry-key trans)) current-state)
+                  (equal? (second (entry-key trans)) symbol))
              (entry-value trans)
              (find-next-state current-state symbol (rest transitions))))]))
 
@@ -301,7 +301,7 @@
         #t
         #f)))
 
-     
+    
 ;************************************************************
 ; A Context Free Grammar (CFG) is represented using the following.
 
@@ -460,34 +460,27 @@
 
 ;************************************************************
 
-(define (ramdom-element lst)
-  (list-ref lst (random (length lst))))
-
 (define (generate-parse-tree-from-cfg grammar)
-  (define (random-rule-for-symbol symbol)
-    (let ((rules (filter (lambda (r) (equal? (rule-lhs r) symbol)) 
-                         (cfg-rules grammar))))
-      (if (null? rules)
-          (error "No rules for symbol" symbol)
-          (ramdom-element rules))))
-
-  (define (expand symbol)
+  (define (generate-tree symbol)
     (if (member symbol (cfg-terminals grammar))
         (leaf symbol)
-        (let ((rule (random-rule-for-symbol symbol)))
+        (let* ((rules (filter (lambda (r) (equal? (rule-lhs r) symbol)) 
+                              (cfg-rules grammar)))
+               (rule (if (null? rules)
+                         (error "no rule found for symbol" symbol)
+                         (list-ref rules (random (length rules))))))
           (node symbol
-                (map expand (rule-rhs rule))))))
+                (map generate-tree (rule-rhs rule))))))
+  (generate-tree (cfg-start-symbol grammar)))
 
-  (expand (cfg-start-symbol grammar)))
-  
 (define (generate-string-from-cfg grammar)
   (define (collect-leaves tree)
     (cond
       [(leaf? tree) (list (leaf-label tree))]
       [(node? tree) (apply append (map collect-leaves (node-children tree)))]
       [else '()]))
-
   (collect-leaves (generate-parse-tree-from-cfg grammar)))
+
 
 ;************************************************************
 ; ** problem 7 ** (10 points)
@@ -630,7 +623,6 @@ If the ball is saved, the player shoots again.
 (define my-cfg 
   (cfg
     '(shoots saved scored plays soccer player game continues)
-    ;'(s Game Action Result Player)
     '(s q1 q2 q3 q4)
     's
     (list
@@ -674,6 +666,10 @@ If the ball is saved, the player shoots again.
 
 
 
+;************************************************************
+
+
+
 ; ********************************************************
 ; ********  testing, testing. 1, 2, 3 ....
 ; ********************************************************
@@ -709,7 +705,7 @@ If the ball is saved, the player shoots again.
 ;; However, by setting the random-seed, we generate the same sequence of 
 ;; pseudo random numbers every time.
 
-; (random-seed 100)
+(random-seed 100)
 
 ; (test 'flip (map (lambda (x) (flip .5)) '(1 2 3 4 5 6 7 8 9 10)) '(#t #f #t #f #f #t #t #f #t #f))
 ; (test 'pick (pick '(1 2 3 4 5 6 7 8 9 10)) 4)
@@ -730,8 +726,6 @@ If the ball is saved, the player shoots again.
 (test 'dfa-accepts? (dfa-accepts? car-cdr '(c a d a r)) #t)
 (test 'dfa-accepts? (dfa-accepts? car-cdr '(c a r d)) #f)
 
-;(dfa-accepts? dfa-mcd (generate-string-from-cfg grammar-mcd))
-
 (test 'list-leaf-labels (list-leaf-labels tree1) '(c d g h i))
 
 (test 'generate-parse-tree-from-cfg (generate-parse-tree-from-cfg grammar-mcd)
@@ -746,8 +740,6 @@ If the ball is saved, the player shoots again.
 (test 'generate-string-from-cfg (generate-string-from-cfg grammar-anbn) '(a a a b b b))
 (test 'generate-string-from-cfg (generate-string-from-cfg grammar-anbn) '(a a b b))
 
-; testing my cfg
-;(generate-string-from-cfg my-cfg)
 
 ;********************** end of hw7.rkt **********************
 
